@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include "htslib/sam.h"
+#include "htslib/kstring.h"
 
 typedef struct {
     samFile *fp;
@@ -61,6 +63,10 @@ void usage(FILE *fp, cmdopt_t *o)
     fprintf(fp, "  -d INT       minimum breakpoint depth [%d]\n\n", o->min_dp);
 }
 
+typedef struct {
+    int n, max, *offsets;
+} iarray_t;
+
 int main(int argc, char *argv[])
 {
     int c, i, n, ret;
@@ -70,7 +76,10 @@ int main(int argc, char *argv[])
     const bam_pileup1_t **plp;
     aux_t **data;
     bam_hdr_t *h = 0;
-
+    kstring_t sa_cigar = {0, 0, 0};
+    iarray_t alns = {0, 0, 0}, aln_fields = {0, 0, 0};
+    sv_vec_t sv = {0, 0, 0}
+    
     o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10;
     while ((c = getopt(argc, argv, "hq:s:l:d:")) >= 0) {
         if (c == 'h') { usage(stderr, &o); return 0; }
@@ -111,7 +120,8 @@ int main(int argc, char *argv[])
     n_plp = calloc(n, sizeof(int)); // n_plp[i] is the number of covering reads from the i-th BAM
     plp = calloc(n, sizeof(bam_pileup1_t*)); // plp[i] points to the array of covering reads in mplp
     while ((ret = bam_mplp_auto(mplp, &tid, &pos, n_plp, plp)) > 0) { // iterate of positions with coverage
-        printf("Reading chromosome %s, position %d\n", h->target_name[tid], pos+1);
+        sv.n = 0;
+        plp2sv(tid, pos, n, n_plp, plp, &sv);
     }
 
 
@@ -124,5 +134,6 @@ int main(int argc, char *argv[])
         free(data[i]); 
     }
     free(data);
+    free(sv.sv)
     return 0;
 }

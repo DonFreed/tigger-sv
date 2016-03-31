@@ -27,6 +27,11 @@
 *.i*86
 *.x86_64
 *.hex
+tigger-sv
 
 # Debug files
 *.dSYM/
+
+# Temporary files
+*~
+*.swp
