@@ -47,6 +47,6 @@ typedef struct {
  *  sv is data on detected structural variants (output)
  *  return is the number of detected structural variants.
  */
-inline int plp2sv(int tid, int pos, int n; int *n_plp; bam_pileup1_t *plp; sv_vec_t *sv)
+inline int plp2sv(int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, sv_vec_t *sv);
 
 #endif
