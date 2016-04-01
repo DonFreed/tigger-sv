@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include "htslib/sam.h"
 #include "htslib/kstring.h"
 #include "plp2sv.h"
@@ -36,7 +37,7 @@ inline void str2cigar(const char *s, i32array_t *cigar, int *n_cigar)
     const char *_s;
     uint32_t l = 0;
     uint8_t op = 0;
-    int _n_cigar = 0;
+    cigar->n = 0;
     for (_s = s; *_s; ++_s) {
         if (isdigit(*_s)) {
             l *= 10;
@@ -61,10 +62,11 @@ inline void str2cigar(const char *s, i32array_t *cigar, int *n_cigar)
                     cigar->a = 0; *n_cigar = -1; return;
                 }
             }
-            cigar->a[cigar->n++] = (l << 4) & op;
+            cigar->a[cigar->n++] = (l << 4) | op;
+            l = 0;
         }
     }
-    *n_cigar = _n_cigar;
+    *n_cigar = cigar->n;
 }
 
 inline int plp2sv(int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, sv_vec_t *sv)
@@ -73,8 +75,7 @@ inline int plp2sv(int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp
     uint8_t *tmp;
     bam1_t *b;
     const char *s;
-    int clip[2], qbeg, qlen, rlen, sa_clip[2], sa_qbeg, sa_qlen, sa_rlen, is_front, n_cigar;
-    int fields_n, fields_m = 8, fields_off[8];
+    int sa_clip[2], sa_qbeg, sa_qlen, sa_rlen, is_front, n_cigar;
     kstring_t sup_alns = {0, 0, 0}; // FIXME: frequent memory allocation
     iarray_t alns = {0, 0, 0}; // FIXME: frequent memory allocation
     iarray_t fields = {0, 0, 0};
@@ -105,9 +106,11 @@ inline int plp2sv(int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp
                 sa_cigar.n = 0;
                 str2cigar(sup_alns.s + alns.a[k] + fields.a[3], &sa_cigar, &sa_n_cigar);
                 parse_cigar(0, 0, sa_cigar.a, sa_n_cigar, sa_clip, &sa_qlen, &sa_rlen, &sa_ins, &sa_del, sa_clip_q);
+                fprintf(stderr, "Supp alignment has orientation %c with sa_clip %d, %d\n", *(sup_alns.s + alns.a[k] + fields.a[2]), sa_clip[0], sa_clip[1]);
                 sa_qbeg = *(sup_alns.s + alns.a[k] + fields.a[2]) == '-' ? sa_clip[1] : sa_clip[0];
                 // Is the supp alignment in the correct orientation?
-                if (is_front ^ is_rev) {
+                fprintf(stderr, "qbeg = %d, sa_qbeg = %d, is_front = %d, is_rev = %d\n", sv1.qbeg, sa_qbeg, is_front, is_rev);
+                if (is_front ^ (!is_rev)) {
                     if (sv1.qbeg < sa_qbeg) {
                         if (sa_idx >= 0) {
                             if (sa_qbeg < lqbeg) {
@@ -137,7 +140,7 @@ inline int plp2sv(int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp
                     }
                 }
             }
-            if (sa_idx < 0) continue; // Supp alignments in wrong orientation
+            if (sa_idx < 0) { fprintf(stderr, "Wrong orientation\n"); continue; } // Supp alignments in wrong orientation
             sv1.to_pos = (uint32_t)atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]);
             sv1.tid = b->core.tid;
             sv1.pos = b->core.pos;
@@ -165,5 +168,6 @@ inline int plp2sv(int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp
     free(sup_alns.s);
     free(alns.a);
     free(sa_cigar.a);
+    free(fields.a);
     return sv->n;
 }

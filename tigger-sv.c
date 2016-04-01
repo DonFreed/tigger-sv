@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
         int n_sv;
         sv.n = 0;
         n_sv = plp2sv(tid, pos, n, n_plp, plp, &sv);
-        if (n_sv) { printf("SV detected at %d:%d\n", tid, pos); }
+        if (n_sv) { fprintf(stderr, "SV detected at %d:%d\n", tid, pos); }
     }
 
 
