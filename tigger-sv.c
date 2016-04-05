@@ -119,6 +119,9 @@ int main(int argc, char *argv[])
         sv.n = 0;
         n_sv = plp2sv(h, tid, pos, n, n_plp, plp, &sv);
         if (n_sv) { fprintf(stderr, "SV detected at %d:%d\n", tid, pos); }
+        for (i = 0; i < n_sv; ++i) {
+            fprintf(stderr, "SV tid1=%d, tid2=%d, pos1=%d, pos2=%d, ori1=%d, ori2=%d\n", sv.sv[i].tid1, sv.sv[i].tid2, sv.sv[i].pos1, sv.sv[i].pos2, sv.sv[i].ori1, sv.sv[i].ori2);
+        }
     }
 
 

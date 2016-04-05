@@ -10,7 +10,7 @@
 
 inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, sv_vec_t *sv)
 {
-    int i, j, k, sv_qbeg;
+    int i, j, k, l, sv_qbeg;
     uint8_t *tmp;
     bam1_t *b;
     const char *s;
@@ -24,7 +24,8 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
     sv->n = 0;
     for (i = 0; i < n; ++i) {
         for (j = 0; j < n_plp[i]; ++j) {
-            int sa_idx = -1, sa_is_rev, lqbeg = -1, sa_off[8], sa_n_cigar, lpos, lrlen, lis_rev;
+            uint32_t sa_off[8] = {0};
+            int sa_idx = -1, sa_is_rev, lqbeg = -1, sa_n_cigar, lpos, lrlen, lis_rev;
             int is_rev;
             b = plp[i][j].b;
             is_rev = !!(b->core.flag&BAM_FREVERSE);
@@ -57,7 +58,7 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
                             if (sa_qbeg < lqbeg) {
                                 sa_idx = k;
                                 lqbeg = sa_qbeg;
-                                memcpy(&sa_off, &fields.a, sizeof(int) * 6);
+                                memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
                                 lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]); 
                                 lrlen = sa_cig_res.rlen -1;
                                 lis_rev = sa_is_rev;
@@ -65,7 +66,7 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
                         } else {
                             sa_idx = k;
                             lqbeg = sa_qbeg;
-                            memcpy(&sa_off, &fields.a, sizeof(int) * 6);
+                            memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
                             lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]); 
                             lrlen = sa_cig_res.rlen -1;
                             lis_rev = sa_is_rev;
@@ -77,7 +78,7 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
                             if (sa_qbeg > lqbeg) {
                                 sa_idx = k;
                                 lqbeg = sa_qbeg;
-                                memcpy(&sa_off, &fields.a, sizeof(int) * 6);
+                                memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
                                 lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]);
                                 lrlen = sa_cig_res.rlen -1;
                                 lis_rev = sa_is_rev;
@@ -85,7 +86,7 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
                         } else {
                             sa_idx = k;
                             lqbeg = sa_qbeg;
-                            memcpy(&sa_off, &fields.a, sizeof(int) * 6);
+                            memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
                             lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]);
                             lrlen = sa_cig_res.rlen -1;
                             lis_rev = sa_is_rev;
