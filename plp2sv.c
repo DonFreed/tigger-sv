@@ -10,7 +10,7 @@
 
 inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, sv_vec_t *sv)
 {
-    int i, j, k, l, sv_qbeg;
+    int i, j, k, l, sv_qbeg, is_sv;
     uint8_t *tmp;
     bam1_t *b;
     const char *s;
@@ -52,46 +52,35 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
                 sa_qbeg = sa_is_rev ? sa_cig_res.clip[1] : sa_cig_res.clip[0];
                 // Is the supp alignment in the correct orientation?
                 fprintf(stderr, "qbeg = %d, sa_qbeg = %d, is_front = %d, is_rev = %d\n", sv_qbeg, sa_qbeg, is_front, is_rev);
+                is_sv = 0;
                 if (is_front ^ (!is_rev)) {
                     if (sv_qbeg < sa_qbeg) {
                         if (sa_idx >= 0) {
                             if (sa_qbeg < lqbeg) {
-                                sa_idx = k;
-                                lqbeg = sa_qbeg;
-                                memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
-                                lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]); 
-                                lrlen = sa_cig_res.rlen -1;
-                                lis_rev = sa_is_rev;
+                                is_sv = 1;
                             }
                         } else {
-                            sa_idx = k;
-                            lqbeg = sa_qbeg;
-                            memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
-                            lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]); 
-                            lrlen = sa_cig_res.rlen -1;
-                            lis_rev = sa_is_rev;
+                            is_sv = 1;
                         }
                     }
                 } else {
                     if (sv_qbeg > sa_qbeg) {
                         if (sa_idx >= 0) {
                             if (sa_qbeg > lqbeg) {
-                                sa_idx = k;
-                                lqbeg = sa_qbeg;
-                                memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
-                                lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]);
-                                lrlen = sa_cig_res.rlen -1;
-                                lis_rev = sa_is_rev;
+                                is_sv = 1;
                             }
                         } else {
-                            sa_idx = k;
-                            lqbeg = sa_qbeg;
-                            memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
-                            lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]);
-                            lrlen = sa_cig_res.rlen -1;
-                            lis_rev = sa_is_rev;
+                            is_sv = 1;
                         }
                     }
+                }
+                if (is_sv) {
+                    sa_idx = k;
+                    lqbeg = sa_qbeg;
+                    memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
+                    lpos = atoi(sup_alns.s + alns.a[sa_idx] + sa_off[1]);
+                    lrlen = sa_cig_res.rlen -1;
+                    lis_rev = sa_is_rev;
                 }
             }
             if (sa_idx < 0) { fprintf(stderr, "Wrong orientation\n"); continue; } // Supp alignments in wrong orientation
