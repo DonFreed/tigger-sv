@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
     while ((ret = bam_mplp_auto(mplp, &tid, &pos, n_plp, plp)) > 0) { // iterate of positions with coverage
         int n_sv;
         sv.n = 0;
-        n_sv = plp2sv(tid, pos, n, n_plp, plp, &sv);
+        n_sv = plp2sv(h, tid, pos, n, n_plp, plp, &sv);
         if (n_sv) { fprintf(stderr, "SV detected at %d:%d\n", tid, pos); }
     }
 
