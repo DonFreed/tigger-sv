@@ -74,6 +74,9 @@ int main(int argc, char *argv[])
     aux_t **data;
     bam_hdr_t *h = 0;
     sv_vec_t sv = {0, 0, 0};
+    sv_t sv1;
+    khiter_t k_iter;
+    khash_t(sv_hash) *sv_h = kh_init(sv_hash);
     
     o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10;
     while ((c = getopt(argc, argv, "hq:s:l:d:")) >= 0) {
@@ -117,10 +120,13 @@ int main(int argc, char *argv[])
     while ((ret = bam_mplp_auto(mplp, &tid, &pos, n_plp, plp)) > 0) { // iterate of positions with coverage
         int n_sv;
         sv.n = 0;
-        n_sv = plp2sv(h, tid, pos, n, n_plp, plp, &sv);
+        n_sv = plp2sv(h, tid, pos, n, n_plp, plp, sv_h);
         if (n_sv) { fprintf(stderr, "SV detected at %d:%d\n", tid, pos); }
-        for (i = 0; i < n_sv; ++i) {
-            fprintf(stderr, "SV tid1=%d, tid2=%d, pos1=%d, pos2=%d, ori1=%d, ori2=%d\n", sv.sv[i].tid1, sv.sv[i].tid2, sv.sv[i].pos1, sv.sv[i].pos2, sv.sv[i].ori1, sv.sv[i].ori2);
+    }
+    for (k_iter = kh_begin(sv_h); k_iter != kh_end(sv_h); ++k_iter) {
+        if (kh_exist(sv_h, k_iter)) {
+            sv1 = kh_value(sv_h, k_iter);
+            fprintf(stderr, "SV tid1=%d, tid2=%d, pos1=%d, pos2=%d, ori1=%d, ori2=%d\n", sv1.tid1, sv1.tid2, sv1.pos1, sv1.pos2, sv1.ori1, sv1.ori2);
         }
     }
 
@@ -135,5 +141,6 @@ int main(int argc, char *argv[])
     }
     free(data);
     free(sv.sv);
+    kh_destroy(sv_hash, sv_h);
     return 0;
 }

@@ -2,11 +2,13 @@
 #define PLP2SV
 
 #include <stdint.h>
+#include "htslib/khash.h"
 #include "htslib/sam.h"
 
 typedef struct {
     uint64_t id; // position of bp1 << 32 | position of bp2 where 
                  //  pos bp1 is defined as min(pos_bp1, pos_bp2)
+    int allele; // the numeric id of the allele
     int32_t tid1;
     int32_t pos1;
     int ori1; // 0 = read extends to the right of bp; 1 = read extends to the left of bp.
@@ -20,6 +22,8 @@ typedef struct {
     sv_t *sv;
 } sv_vec_t;
 
+KHASH_MAP_INIT_INT64(sv_hash, sv_t)
+
 /*
  * plp2sv
  *  tid is the integer id of the reference chromosome (input)
@@ -30,6 +34,6 @@ typedef struct {
  *  sv is data on detected structural variants (output)
  *  return is the number of detected structural variants.
  */
-inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, sv_vec_t *sv);
+inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, khash_t(sv_hash) *sv_h);
 
 #endif

@@ -8,9 +8,9 @@
 #include "cigar.h"
 #include "array.h"
 
-inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, sv_vec_t *sv)
+inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, khash_t(sv_hash) *sv_h)
 {
-    int i, j, k, l, sv_qbeg, is_sv;
+    int i, j, k, n_allele = 0, sv_qbeg, is_sv, ret;
     uint8_t *tmp;
     bam1_t *b;
     const char *s;
@@ -21,7 +21,7 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
     i32array_t sa_cigar = {0, 0, 0}; // FIXME: frequent memory allocation
     sv_t sv1;
     cigar_res_t cigar_res, sa_cig_res;
-    sv->n = 0;
+    khiter_t k_iter;
     for (i = 0; i < n; ++i) {
         for (j = 0; j < n_plp[i]; ++j) {
             uint32_t sa_off[8] = {0};
@@ -90,20 +90,25 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
             sv1.pos2 = (lqbeg < sv_qbeg) ^ lis_rev ? lpos + lrlen - 1 : lpos;
             sv1.ori1 = !is_front;
             sv1.ori2 = (lqbeg < sv_qbeg) ^ lis_rev ? 1 : 0;
+            /* FIXME: representing breakpoint positions as a 64-bit int may rarely lead to collisions */
+            if (sv1.pos1 < sv1.pos2) {
+                sv1.id = (uint64_t)(sv1.tid1 & 0xff) << 56 | sv1.pos1 << 28 | sv1.pos2 << 28;
+            } else {
+                sv1.id = (uint64_t)(sv1.tid2 & 0xff) << 56 | sv1.pos2 << 28 | sv1.pos1 << 28;
+            } 
             sv1.id = sv1.pos1 < sv1.pos2 ? (uint64_t)sv1.pos1 << 32 | sv1.pos2 : (uint64_t)sv1.pos2 << 32 | sv1.pos1;
-            
-            if (sv->n >= sv->max) {
-                sv->max = sv->n ? sv->n + 1 : 16;
-                kroundup32(sv->max);
-                sv->sv = (sv_t*)realloc(sv->sv, sv->max * sizeof(sv_t));
-               if (!sv->sv) return -1;
+
+            k_iter = kh_get(sv_hash, sv_h, sv1.id);
+            if (k_iter == kh_end(sv_h)) {
+                sv1.allele = n_allele++;
+                k_iter = kh_put(sv_hash, sv_h, sv1.id, &ret);
+                kh_value(sv_h, k_iter) = sv1;
             }
-            sv->sv[sv->n++] = sv1;
         }
     }
     free(sup_alns.s);
     free(alns.a);
     free(sa_cigar.a);
     free(fields.a);
-    return sv->n;
+    return n_allele;
 }
