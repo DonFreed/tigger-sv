@@ -49,9 +49,9 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
             sv1.ori2 = (sa_qbeg < sv_qbeg) ^ sa_is_rev ? 1 : 0;
             /* FIXME: representing breakpoint positions as a 64-bit int may lead to collisions */
             if (sv1.pos1 < sv1.pos2) {
-                sv1.id = (uint64_t)(sv1.tid1 & 0xff) << 56 | sv1.pos1 << 28 | sv1.pos2 << 28;
+                sv1.id = (uint64_t)(sv1.tid1 & 0xff) << 56 | sv1.pos1 << 28 | sv1.pos2;
             } else {
-                sv1.id = (uint64_t)(sv1.tid2 & 0xff) << 56 | sv1.pos2 << 28 | sv1.pos1 << 28;
+                sv1.id = (uint64_t)(sv1.tid2 & 0xff) << 56 | sv1.pos2 << 28 | sv1.pos1;
             } 
 
             k_iter = kh_get(sv_hash, sv_h, sv1.id);

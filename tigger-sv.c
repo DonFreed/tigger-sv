@@ -5,7 +5,7 @@
 #include "htslib/sam.h"
 #include "htslib/kstring.h"
 #include "plp2sv.h"
-//#include "sv_qual.h"
+#include "sv_qual.h"
 
 typedef struct {
     samFile *fp;
@@ -67,7 +67,7 @@ void usage(FILE *fp, cmdopt_t *o)
 
 int main(int argc, char *argv[])
 {
-    int c, i, n, ret, res;
+    int c, i, n, ret, res, j, k;
     int tid, pos, *n_plp;
     cmdopt_t o;
     bam_mplp_t mplp;
@@ -77,7 +77,8 @@ int main(int argc, char *argv[])
     sv_t sv1;
     khiter_t k_iter;
     khash_t(sv_hash) *sv_h = kh_init(sv_hash);
-//    qual_vec_t *quals;
+    qual_vec_t *quals;
+    read_qual_t *qual1;
     
     o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10;
     while ((c = getopt(argc, argv, "hq:s:l:d:")) >= 0) {
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
     mplp = bam_mplp_init(n, read_bam, (void**)data);
     n_plp = calloc(n, sizeof(int)); // n_plp[i] is the number of covering reads from the i-th BAM
     plp = calloc(n, sizeof(bam_pileup1_t*)); // plp[i] points to the array of covering reads in mplp
-//    quals = (qual_vec_t*)calloc(n, sizeof(qual_vec_t));
+    quals = (qual_vec_t*)calloc(n, sizeof(qual_vec_t));
     while ((ret = bam_mplp_auto(mplp, &tid, &pos, n_plp, plp)) > 0) { // iterate of positions with coverage
         int n_sv;
         n_sv = plp2sv(h, tid, pos, n, n_plp, plp, sv_h);
@@ -130,9 +131,18 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "SV tid1=%d, tid2=%d, pos1=%d, pos2=%d, ori1=%d, ori2=%d\n", sv1.tid1, sv1.tid2, sv1.pos1, sv1.pos2, sv1.ori1, sv1.ori2);
                 }
             }
-            kh_clear(sv_hash, sv_h);
             
-//            res = get_qual_data(tid, pos, n, n_plp, plp, sv_h, quals);
+            for (j = 0; j < n; ++j) { quals[j].n = 0; }
+            res = get_qual_data(h, tid, pos, n, n_plp, plp, sv_h, quals);
+            if (res < 0) { fprintf(stderr, "Error getting read quality data\n"); return -1; }
+            kh_clear(sv_hash, sv_h);
+            for (j = 0; j < n; ++j) {
+                for (k = 0; k < quals[j].n; ++k) {
+                    qual1 = &quals[j].a[k];
+                    fprintf(stderr, "Read at SV site has qlen=%d, div=%f, dp=%d, qual=%d, allele=%d, is_fwd=%d\n", (int)qual1->qlen, qual1->div, (int)qual1->dp, (int)qual1->qual, (int)qual1->allele, (int)qual1->is_fwd);
+                }
+                quals[j].n = 0;
+            }
         }
     }
 
@@ -143,10 +153,10 @@ int main(int argc, char *argv[])
         bam_hdr_destroy(data[i]->hdr);
         sam_close(data[i]->fp);
         free(data[i]);
-//        free(quals[i].a);
+        free(quals[i].a);
     }
     free(data);
     kh_destroy(sv_hash, sv_h);
-//    free(quals);
+    free(quals);
     return 0;
 }

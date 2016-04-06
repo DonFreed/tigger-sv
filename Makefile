@@ -1,7 +1,7 @@
 CC=				gcc
 CFLAGS=			-g -Wall
 CPPFLAGS=		-Ihtslib
-OBJS=			tigger-sv.o plp2sv.o cigar.o
+OBJS=			tigger-sv.o plp2sv.o cigar.o sv_qual.o
 PROG=			tigger-sv
 
 .SUFFIXES:.c .o
@@ -24,3 +24,4 @@ clean:
 
 tigger-sv.o: plp2sv.h array.h
 plp2sv.o: cigar.h array.h
+sv_qual.o: cigar.h plp2sv.h array.h

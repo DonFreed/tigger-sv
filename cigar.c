@@ -6,6 +6,33 @@
 #include "htslib/kstring.h"
 #include "cigar.h"
 
+inline uint32_t cigar_get_qual(uint8_t *qual, int tdist, const uint32_t *cigar, int n_cigar)
+{
+    int k;
+    int rdist = 0; // distance along the reference
+    int qdist = 0; // distance along the query (read)
+    for (k = 0; k < n_cigar; ++k) {
+        int op = bam_cigar_op(cigar[k]);
+        int oplen = bam_cigar_oplen(cigar[k]);
+        if (oplen == 0) continue;
+        if (bam_cigar_type(op)&2) {
+            if (rdist + oplen > tdist) {
+                if (bam_cigar_type(op)&1) {
+                    return qual[qdist + (tdist - rdist)];
+                } else {
+                    return qual[qdist];
+                }
+            } else {
+                rdist += oplen;
+            }
+        }
+        if (bam_cigar_type(op)&1) {
+            qdist += oplen;
+        }
+    }
+    return UINT32_MAX;
+}
+
 inline void parse_cigar(uint8_t *qual, int32_t l_qseq, const uint32_t *cigar, int n_cigar, cigar_res_t *res)
 {
     int k;
