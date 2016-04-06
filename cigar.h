@@ -17,4 +17,6 @@ inline void parse_cigar(uint8_t *qual, int32_t l_qseq, const uint32_t *cigar, in
 
 inline void str2cigar(const char *s, i32array_t *cigar, int *n_cigar);
 
+inline int parse_sa_tag(bam_hdr_t *h, kstring_t *sa, int is_front, int is_rev, int sv_qbeg, cigar_res_t *res, int *sa_is_rev, int *sa_qbeg, int *sa_tid, int *sa_pos);
+
 #endif

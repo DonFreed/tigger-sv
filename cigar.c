@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <ctype.h>
 #include "htslib/sam.h"
+#include "htslib/kstring.h"
 #include "cigar.h"
 
 inline void parse_cigar(uint8_t *qual, int32_t l_qseq, const uint32_t *cigar, int n_cigar, cigar_res_t *res)
@@ -68,3 +69,61 @@ inline void str2cigar(const char *s, i32array_t *cigar, int *n_cigar)
     *n_cigar = cigar->n;
 }
 
+inline int parse_sa_tag(bam_hdr_t *h, kstring_t *sa, int is_front, int is_rev, int sv_qbeg, cigar_res_t *res, int *sa_is_rev, int *sa_qbeg, int *sa_tid, int *sa_pos)
+{
+    iarray_t alns = {0, 0, 0};
+    iarray_t fields = {0, 0, 0};
+    i32array_t sa_cigar = {0, 0, 0};
+    int k, sa_n_cigar, is_sv, sa_idx = -1, _sa_is_rev, _sa_qbeg;
+    uint32_t sa_off[8] = {0};
+    cigar_res_t _res;
+    alns.n = ksplit_core(sa->s, ';', &alns.max, &alns.a);
+    for (k = 0; k < alns.n; ++k) {
+        fields.n = ksplit_core(sa->s + alns.a[k], ',', &fields.max, &fields.a);
+        sa_cigar.n = 0;
+        str2cigar(sa->s + alns.a[k] + fields.a[3], &sa_cigar, &sa_n_cigar);
+        parse_cigar(0, 0, sa_cigar.a, sa_n_cigar, &_res);
+        _sa_is_rev = *(sa->s + alns.a[k] + fields.a[2]) == '-';
+        _sa_qbeg = _sa_is_rev ? _res.clip[1] : _res.clip[0];
+        is_sv = 0;
+        if (is_front ^ (!is_rev)) {
+            if (sv_qbeg < _sa_qbeg) {
+                if (sa_idx >= 0) {
+                    if (_sa_qbeg < *sa_qbeg) {
+                        is_sv = 1;
+                    }
+                } else {
+                    is_sv = 1;
+                }
+            }
+        } else {
+            if (sv_qbeg > _sa_qbeg) {
+                if (sa_idx >= 0) {
+                    if (_sa_qbeg > *sa_qbeg) {
+                        is_sv = 1;
+                    }
+                } else {
+                    is_sv = 1;
+                }
+            }
+        }
+        if (is_sv) {
+            sa_idx = k;
+            *sa_qbeg = _sa_qbeg;
+            memcpy(sa_off, fields.a, sizeof(uint32_t) * 6);
+            *sa_tid = bam_name2id(h, sa->s + alns.a[sa_idx]);
+            *sa_pos = atoi(sa->s + alns.a[sa_idx] + sa_off[1]);
+            *sa_is_rev = _sa_is_rev;
+            *res = _res;
+        }
+    }
+    free(alns.a);
+    free(fields.a);
+    free(sa_cigar.a);
+    
+    if (sa_idx >= 0) {
+        return 1;
+    } else {
+        return 0;
+    }
+}

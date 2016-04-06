@@ -5,6 +5,7 @@
 #include "htslib/sam.h"
 #include "htslib/kstring.h"
 #include "plp2sv.h"
+//#include "sv_qual.h"
 
 typedef struct {
     samFile *fp;
@@ -66,17 +67,17 @@ void usage(FILE *fp, cmdopt_t *o)
 
 int main(int argc, char *argv[])
 {
-    int c, i, n, ret;
+    int c, i, n, ret, res;
     int tid, pos, *n_plp;
     cmdopt_t o;
     bam_mplp_t mplp;
     const bam_pileup1_t **plp;
     aux_t **data;
     bam_hdr_t *h = 0;
-    sv_vec_t sv = {0, 0, 0};
     sv_t sv1;
     khiter_t k_iter;
     khash_t(sv_hash) *sv_h = kh_init(sv_hash);
+//    qual_vec_t *quals;
     
     o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10;
     while ((c = getopt(argc, argv, "hq:s:l:d:")) >= 0) {
@@ -117,19 +118,23 @@ int main(int argc, char *argv[])
     mplp = bam_mplp_init(n, read_bam, (void**)data);
     n_plp = calloc(n, sizeof(int)); // n_plp[i] is the number of covering reads from the i-th BAM
     plp = calloc(n, sizeof(bam_pileup1_t*)); // plp[i] points to the array of covering reads in mplp
+//    quals = (qual_vec_t*)calloc(n, sizeof(qual_vec_t));
     while ((ret = bam_mplp_auto(mplp, &tid, &pos, n_plp, plp)) > 0) { // iterate of positions with coverage
         int n_sv;
-        sv.n = 0;
         n_sv = plp2sv(h, tid, pos, n, n_plp, plp, sv_h);
-        if (n_sv) { fprintf(stderr, "SV detected at %d:%d\n", tid, pos); }
-    }
-    for (k_iter = kh_begin(sv_h); k_iter != kh_end(sv_h); ++k_iter) {
-        if (kh_exist(sv_h, k_iter)) {
-            sv1 = kh_value(sv_h, k_iter);
-            fprintf(stderr, "SV tid1=%d, tid2=%d, pos1=%d, pos2=%d, ori1=%d, ori2=%d\n", sv1.tid1, sv1.tid2, sv1.pos1, sv1.pos2, sv1.ori1, sv1.ori2);
+        if (n_sv) {
+            fprintf(stderr, "SV detected at %d:%d\n", tid, pos);
+            for (k_iter = kh_begin(sv_h); k_iter != kh_end(sv_h); ++k_iter) {
+                if (kh_exist(sv_h, k_iter)) {
+                    sv1 = kh_value(sv_h, k_iter);
+                    fprintf(stderr, "SV tid1=%d, tid2=%d, pos1=%d, pos2=%d, ori1=%d, ori2=%d\n", sv1.tid1, sv1.tid2, sv1.pos1, sv1.pos2, sv1.ori1, sv1.ori2);
+                }
+            }
+            kh_clear(sv_hash, sv_h);
+            
+//            res = get_qual_data(tid, pos, n, n_plp, plp, sv_h, quals);
         }
     }
-
 
     free(n_plp);
     free(plp);
@@ -137,10 +142,11 @@ int main(int argc, char *argv[])
     for (i = 0; i < n; ++i) { 
         bam_hdr_destroy(data[i]->hdr);
         sam_close(data[i]->fp);
-        free(data[i]); 
+        free(data[i]);
+//        free(quals[i].a);
     }
     free(data);
-    free(sv.sv);
     kh_destroy(sv_hash, sv_h);
+//    free(quals);
     return 0;
 }
