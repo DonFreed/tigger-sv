@@ -33,13 +33,9 @@ inline uint32_t cigar_get_qual(uint8_t *qual, int tdist, const uint32_t *cigar, 
     return UINT32_MAX;
 }
 
-inline void parse_cigar(uint8_t *qual, int32_t l_qseq, const uint32_t *cigar, int n_cigar, cigar_res_t *res)
+inline void parse_cigar(const uint32_t *cigar, int n_cigar, cigar_res_t *res)
 {
     int k;
-    if (qual) {
-        res->clip_q[0] = qual[0]; 
-        res->clip_q[1] = qual[l_qseq];
-    }
     res->clip[0] = 0; res->clip[1] = 0; res->qlen = 0; res->rlen = 0; res->ins = 0; res->del = 0;
     for (k = 0; k < n_cigar; ++k) {
         int op = bam_cigar_op(cigar[k]);
@@ -48,9 +44,6 @@ inline void parse_cigar(uint8_t *qual, int32_t l_qseq, const uint32_t *cigar, in
         if ((bam_cigar_type(op)&1) && op != BAM_CSOFT_CLIP) res->qlen += oplen;
         if (op == BAM_CSOFT_CLIP || op == BAM_CHARD_CLIP) {
             res->clip[!!k] = oplen;
-            if (qual && op == BAM_CSOFT_CLIP) {
-                res->clip_q[!!k] = !k? qual[oplen] : qual[res->clip[0] + res->qlen - 1];
-            }
         }
         if (bam_cigar_type(op)&2) res->rlen += oplen;
         if (op == BAM_CINS) res->ins += oplen;
@@ -109,7 +102,7 @@ inline int parse_sa_tag(bam_hdr_t *h, kstring_t *sa, int is_front, int is_rev, i
         fields.n = ksplit_core(sa->s + alns.a[k], ',', &fields.max, &fields.a);
         sa_cigar.n = 0;
         str2cigar(sa->s + alns.a[k] + fields.a[3], &sa_cigar, &sa_n_cigar);
-        parse_cigar(0, 0, sa_cigar.a, sa_n_cigar, &_res);
+        parse_cigar(sa_cigar.a, sa_n_cigar, &_res);
         _sa_is_rev = *(sa->s + alns.a[k] + fields.a[2]) == '-';
         _sa_qbeg = _sa_is_rev ? _res.clip[1] : _res.clip[0];
         is_sv = 0;

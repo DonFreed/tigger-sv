@@ -36,7 +36,7 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
         for (j = 0; j < n_plp[i]; ++j) {
             b = plp[i][j].b;
             qual1.qual = b->core.qual;
-            parse_cigar(bam_get_qual(b), b->core.l_qseq, bam_get_cigar(b), b->core.n_cigar, &cigar_res);
+            parse_cigar(bam_get_cigar(b), b->core.n_cigar, &cigar_res);
             qual1.qlen = cigar_res.qlen;
             qual1.dp = cigar_get_qual(bam_get_qual(b), pos - b->core.pos, bam_get_cigar(b), b->core.n_cigar);
             if (qual1.dp == UINT32_MAX) {

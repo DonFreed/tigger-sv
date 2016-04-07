@@ -34,13 +34,13 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
             tmp = bam_aux_get(b, "SA");
             if (!tmp) continue; // Skip reads without supplementary alignments
             n_cigar = b->core.n_cigar;
-            parse_cigar(bam_get_qual(b), b->core.l_qseq, bam_get_cigar(b), n_cigar, &cigar_res);
+            parse_cigar(bam_get_cigar(b), n_cigar, &cigar_res);
             sv_qbeg = cigar_res.clip[is_rev];
             s = bam_aux2Z(tmp);
             sup_alns.l = 0;
             kputs(s, &sup_alns);
             ret = parse_sa_tag(h, &sup_alns, is_front, is_rev, sv_qbeg, &sa_cig_res, &sa_is_rev, &sa_qbeg, &sa_tid, &sa_pos);
-            if (!ret) { fprintf(stderr, "Wrong orientation\n"); continue; } // Supp alignments in wrong orientation
+            if (!ret) { continue; } // Supp alignments in wrong orientation
             sv1.tid1 = b->core.tid;
             sv1.tid2 = sa_tid;
             sv1.pos1 = pos;
