@@ -8,7 +8,7 @@
 typedef struct {
     uint32_t qlen; // read (unitig) length
     float div; // divergence between the read and the reference allele
-    uint32_t dp:8, qual:8, allele:8, is_fwd:1, tmp:7; // depth (quality), mapping quality, supported allele (0 for ref), is the read on the fwd strand
+    uint32_t dp:15, qual:8, allele:8, is_fwd:1; // depth (quality), mapping quality, supported allele (0 for ref), is the read on the fwd strand
 } read_qual_t;
 
 typedef struct {

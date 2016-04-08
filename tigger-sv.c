@@ -6,6 +6,8 @@
 #include "htslib/kstring.h"
 #include "plp2sv.h"
 #include "sv_qual.h"
+#include "mempool.h"
+#include "summarize_qual.h"
 
 typedef struct {
     samFile *fp;
@@ -75,10 +77,13 @@ int main(int argc, char *argv[])
     aux_t **data;
     bam_hdr_t *h = 0;
     sv_t sv1;
+    qual_sum_t qual2;
     khiter_t k_iter;
     khash_t(sv_hash) *sv_h = kh_init(sv_hash);
+    khash_t(sv_geno) *geno_h = kh_init(sv_geno);
     qual_vec_t *quals;
     read_qual_t *qual1;
+    mempool_t *mp;
     
     o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10;
     while ((c = getopt(argc, argv, "hq:s:l:d:")) >= 0) {
@@ -120,6 +125,7 @@ int main(int argc, char *argv[])
     n_plp = calloc(n, sizeof(int)); // n_plp[i] is the number of covering reads from the i-th BAM
     plp = calloc(n, sizeof(bam_pileup1_t*)); // plp[i] points to the array of covering reads in mplp
     quals = (qual_vec_t*)calloc(n, sizeof(qual_vec_t));
+    mp = mp_init();
     while ((ret = bam_mplp_auto(mplp, &tid, &pos, n_plp, plp)) > 0) { // iterate of positions with coverage
         int n_sv;
         n_sv = plp2sv(h, tid, pos, n, n_plp, plp, sv_h);
@@ -143,12 +149,20 @@ int main(int argc, char *argv[])
                 }
                 quals[j].n = 0;
             }
+            res = summarize_qual((uint32_t)tid, (uint32_t)pos, n, n_sv, sv_h, quals, mp, geno_h);
+        }
+    }
+    for (k_iter = kh_begin(geno_h); k_iter != kh_end(geno_h); ++k_iter) {
+        if (kh_exist(geno_h, k_iter)) {
+            qual2 = kh_value(geno_h, k_iter);
+            fprintf(stderr, "SV found with tid=%d, pos=%d\n", (int)qual2.tid, qual2.pos);
         }
     }
 
     free(n_plp);
     free(plp);
     bam_mplp_destroy(mplp);
+    mp_destroy(mp);
     for (i = 0; i < n; ++i) { 
         bam_hdr_destroy(data[i]->hdr);
         sam_close(data[i]->fp);
