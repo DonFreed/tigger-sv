@@ -4,24 +4,10 @@
 #include "sv_qual.h"
 #include "cigar.h"
 
-inline int qual_push(qual_vec_t *quals, read_qual_t *qual1)
-{
-    if (quals->n >= quals->max) {
-        quals->max = quals->n ? quals->n + 1 : 32;
-        kroundup32(quals->max);
-        if (!(quals->a = (read_qual_t*)realloc(quals->a, quals->max * sizeof(read_qual_t)))) {
-            quals->a = 0; return 1;
-        }
-    }
-    quals->a[quals->n++] = *qual1;
-    return 0;
-}
-
-int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pileup1_t **plp, khash_t(sv_hash) *sv_h, qual_vec_t *quals)
+int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pileup1_t **plp, int n_alleles, khash_t(sv_hash) *sv_h, khash_t(sv_geno) *geno_h, mempool_t *mp)
 {
     int i, j, nm, qbeg, res;
     bam1_t *b;
-    read_qual_t qual1;
     cigar_res_t cigar_res, sa_cig_res;
     uint8_t *tmp;
     const char *s;
@@ -32,50 +18,57 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
     int sa_is_rev, sa_qbeg, sa_tid, sa_pos, sa_bp_pos;
     uint64_t id;
     khiter_t k_iter;
+    qual_sum_t qual_sum;
+    memset(&qual_sum, 0, sizeof(qual_sum));
+    qual_sum.tid = tid;
+    qual_sum.pos = pos;
+    qual_sum.n_alleles = n_alleles;
+    qual_sum.read_data = (uint16_t*)mp_alloc(mp, sizeof(uint16_t) * n * (n_alleles + 1));
+    qual_sum.alleles = (allele_t*)mp_alloc(mp, sizeof(allele_t) * n_alleles);
+
+    // read data //
     for (i = 0; i < n; ++i) {
         for (j = 0; j < n_plp[i]; ++j) {
+            int rd_idx, dp, allele, is_fwd;
             b = plp[i][j].b;
-            qual1.qual = b->core.qual;
+            qual_sum.mq_sum += b->core.qual;
             parse_cigar(bam_get_cigar(b), b->core.n_cigar, &cigar_res);
-            qual1.qlen = cigar_res.qlen;
-            qual1.dp = cigar_get_qual(bam_get_qual(b), pos - b->core.pos, bam_get_cigar(b), b->core.n_cigar);
-            if (qual1.dp == UINT32_MAX) {
+            qual_sum.qlen_sum += cigar_res.qlen;
+            dp = cigar_get_qual(bam_get_qual(b), pos - b->core.pos, bam_get_cigar(b), b->core.n_cigar);
+            if (dp == UINT32_MAX) {
                 fprintf(stderr, "Error parsing cigar, no quality score found\n");
                 return -2;
             }
-            qual1.is_fwd = !bam_is_rev(b);
             nm = -1;
             if ((tmp = bam_aux_get(b, "NM"))) {
                 nm = bam_aux2i(tmp);
-                qual1.div = (float)nm / (qual1.qlen + cigar_res.del);
+                qual_sum.div_sum += (float)nm / (cigar_res.qlen + cigar_res.del);
             } else {
-                qual1.div = (float)1.0;
+                qual_sum.div_sum += (float)1.0;
             }
             if (b->core.pos != pos && bam_endpos(b) != pos + 1) {
-                qual1.allele = 0;
-                if (qual_push(&quals[i], &qual1)) {
-                    return -1;
-                }
+                allele = 0;
+                rd_idx = (i * n_alleles) + allele;
+                qual_sum.read_data[rd_idx] += dp;
                 continue;
             }
             tmp = bam_aux_get(b, "SA");
             if (!tmp) { 
-                qual1.allele = 0; 
-                if (qual_push(&quals[i], &qual1)) {
-                    return -1;
-                }
+                allele = 0; 
+                rd_idx = (i * n_alleles) + allele;
+                qual_sum.read_data[rd_idx] += dp;
                 continue;
             }
             s = bam_aux2Z(tmp);
             sup_alns.l = 0;
             kputs(s, &sup_alns);
-            qbeg = cigar_res.clip[!qual1.is_fwd];
-            res = parse_sa_tag(h, &sup_alns, b->core.pos == pos, !qual1.is_fwd, qbeg, &sa_cig_res, &sa_is_rev, &sa_qbeg, &sa_tid, &sa_pos);
+            is_fwd = !bam_is_rev(b);
+            qbeg = cigar_res.clip[!is_fwd];
+            res = parse_sa_tag(h, &sup_alns, b->core.pos == pos, !is_fwd, qbeg, &sa_cig_res, &sa_is_rev, &sa_qbeg, &sa_tid, &sa_pos);
             if (!res) { 
-                qual1.allele = 0; 
-                if (qual_push(&quals[i], &qual1)) {
-                    return -1;
-                }
+                allele = 0;
+                rd_idx = (i * n_alleles) + allele;
+                qual_sum.read_data[rd_idx] += dp;
                 continue;
             }
             sa_bp_pos = (sa_qbeg < qbeg) ^ sa_is_rev ? sa_pos + sa_cig_res.rlen - 2 : sa_pos - 1;
@@ -86,18 +79,34 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
             }
             k_iter = kh_get(sv_hash, sv_h, id);
             if (k_iter != kh_end(sv_h)) {
-                qual1.allele = kh_value(sv_h, k_iter).allele + 1;
-                if (qual_push(&quals[i], &qual1)) {
-                    return -1;
-                }
+                allele = kh_value(sv_h, k_iter).allele + 1;
+                rd_idx = (i * n_alleles) + allele;
+                qual_sum.read_data[rd_idx] += dp;
             } else {
-                qual1.allele = 0;
-                if (qual_push(&quals[i], &qual1)) {
-                    return -1;
-                }
+                allele = 0;
+                rd_idx = (i * n_alleles) + allele;
+                qual_sum.read_data[rd_idx] += dp;
             }
         }
+        qual_sum.n_reads += n_plp[i];
     }
+
+    // allele data //
+    for (k_iter = kh_begin(sv_h); k_iter != kh_end(sv_h); ++k_iter) {
+        if (kh_exist(sv_h, k_iter)) {
+            int allele = kh_value(sv_h, k_iter).allele;
+            qual_sum.alleles[allele].tid = kh_value(sv_h, k_iter).tid2;
+            qual_sum.alleles[allele].pos = kh_value(sv_h, k_iter).pos2;
+            qual_sum.alleles[allele].ori1 = kh_value(sv_h, k_iter).ori1;
+            qual_sum.alleles[allele].ori2 = kh_value(sv_h, k_iter).ori2;
+        }
+    }
+
+    id = (uint64_t)tid << 32 | pos;
+    k_iter = kh_put(sv_geno, geno_h, id, &res);
+    if (res < 0) { return -1; }
+    kh_value(geno_h, k_iter) = qual_sum;
+            
     free(sup_alns.s);
     free(alns.a);
     free(fields.a);
