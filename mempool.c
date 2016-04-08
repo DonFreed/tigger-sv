@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "mempool.h"
 
 mempool_t *mp_init()
@@ -12,7 +13,7 @@ mempool_t *mp_init()
 void mp_destroy(mempool_t *mp)
 {
     int64_t i;
-    for (i = 0; i < mp->top; ++i) { free(mp->mem[i]); }
+    for (i = 0; i <= mp->top; ++i) { free(mp->mem[i]); }
     free(mp->mem);
     free(mp);
 }

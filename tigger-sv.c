@@ -171,6 +171,7 @@ int main(int argc, char *argv[])
     }
     free(data);
     kh_destroy(sv_hash, sv_h);
+    kh_destroy(sv_geno, geno_h);
     free(quals);
     return 0;
 }
