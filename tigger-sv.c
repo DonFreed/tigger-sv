@@ -7,6 +7,7 @@
 #include "plp2sv.h"
 #include "sv_qual.h"
 #include "mempool.h"
+#include "genotype.h"
 
 typedef struct {
     samFile *fp;
@@ -150,6 +151,9 @@ int main(int argc, char *argv[])
             fprintf(stderr, "SV found with tid=%d, pos=%d\n", (int)qual2.tid, qual2.pos);
         }
     }
+
+    print_header(h, optind, n, argv);
+    genotype_sv(h, n, geno_h);
 
     free(n_plp);
     free(plp);

@@ -31,9 +31,9 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
         for (j = 0; j < n_plp[i]; ++j) {
             int rd_idx, dp, allele, is_fwd;
             b = plp[i][j].b;
-            qual_sum.mq_sum += b->core.qual;
+            qual_sum.mq_sum += b->core.qual * b->core.qual;
             parse_cigar(bam_get_cigar(b), b->core.n_cigar, &cigar_res);
-            qual_sum.qlen_sum += cigar_res.qlen;
+            qual_sum.qlen_sum += cigar_res.qlen * cigar_res.qlen;
             dp = cigar_get_qual(bam_get_qual(b), pos - b->core.pos, bam_get_cigar(b), b->core.n_cigar);
             if (dp == UINT32_MAX) {
                 fprintf(stderr, "Error parsing cigar, no quality score found\n");
@@ -41,8 +41,10 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
             }
             nm = -1;
             if ((tmp = bam_aux_get(b, "NM"))) {
+                float div;
                 nm = bam_aux2i(tmp);
-                qual_sum.div_sum += (float)nm / (cigar_res.qlen + cigar_res.del);
+                div = (float)nm / (cigar_res.qlen + cigar_res.del);
+                qual_sum.div_sum += div * div;
             } else {
                 qual_sum.div_sum += (float)1.0;
             }
@@ -99,6 +101,8 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
             qual_sum.alleles[allele].pos = kh_value(sv_h, k_iter).pos2;
             qual_sum.alleles[allele].ori1 = kh_value(sv_h, k_iter).ori1;
             qual_sum.alleles[allele].ori2 = kh_value(sv_h, k_iter).ori2;
+            qual_sum.alleles[allele].type = kh_value(sv_h, k_iter).type;
+            qual_sum.alleles[allele].qdist = kh_value(sv_h, k_iter).qdist;
         }
     }
 

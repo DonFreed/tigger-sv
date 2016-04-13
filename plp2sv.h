@@ -15,6 +15,8 @@ typedef struct {
     int32_t tid2;
     int32_t pos2;
     int ori2;
+    char type;
+    int qdist; // size of the SV on the query (unitig)
 } sv_t;
 
 typedef struct {

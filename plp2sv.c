@@ -24,7 +24,7 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
     khiter_t k_iter;
     for (i = 0; i < n; ++i) {
         for (j = 0; j < n_plp[i]; ++j) {
-            int sa_is_rev, sa_tid, sa_pos, is_rev;
+            int sa_is_rev, sa_tid, sa_pos, is_rev, qpos1, qpos2;
             b = plp[i][j].b;
             is_rev = !!(b->core.flag&BAM_FREVERSE);
             if (b->core.pos != pos && bam_endpos(b) != pos + 1) {
@@ -47,6 +47,34 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
             sv1.pos2 = (sa_qbeg < sv_qbeg) ^ sa_is_rev ? sa_pos + sa_cig_res.rlen - 2 : sa_pos -1;
             sv1.ori1 = !is_front;
             sv1.ori2 = (sa_qbeg < sv_qbeg) ^ sa_is_rev ? 1 : 0;
+
+            qpos1 = is_rev ? cigar_res.clip[1] : cigar_res.clip[0];
+            qpos1 += (sv1.ori1 ^ is_rev) ? cigar_res.qlen : 0;
+            qpos2 = sa_is_rev ? sa_cig_res.clip[1] : sa_cig_res.clip[0];
+            qpos2 += (sv1.ori2 ^ sa_is_rev) ? sa_cig_res.qlen : 0;
+            fprintf(stderr, "sa_qbeg = %d, sv_qbeg = %d, qpos1 = %d, qpos2 = %d\n", sa_qbeg, sv_qbeg, qpos1, qpos2);
+            sv1.qdist = sa_qbeg < sv_qbeg ? qpos1 - qpos2 : qpos2 - qpos1;
+
+            if (sv1.tid1 == sv1.tid2) {
+                if (!(sa_is_rev ^ is_rev)) {
+                    int _ori1 = sv1.ori1, _ori2 = sv1.ori2, rdist = sv1.pos2 - sv1.pos1;
+                    if (sv1.pos1 > sv1.pos2) { _ori1 = sv1.ori2; _ori2 = sv1.ori1; rdist = sv1.pos1 - sv1.pos2; }
+                    if (_ori1 & (!_ori2)) {
+                        if (rdist > sv1.qdist) {
+                            sv1.type = 'D';
+                        } else {
+                            sv1.type = 'I';
+                        }
+                    } else {
+                        sv1.type = 'C';
+                    }
+                } else {
+                    sv1.type = 'V';
+                }
+            } else {
+                sv1.type = 'X';
+            }
+
             /* FIXME: representing breakpoint positions as a 64-bit int may lead to collisions */
             if (sv1.pos1 < sv1.pos2) {
                 sv1.id = (uint64_t)(sv1.tid1 & 0xff) << 56 | sv1.pos1 << 28 | sv1.pos2;
@@ -60,6 +88,14 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
                 k_iter = kh_put(sv_hash, sv_h, sv1.id, &ret);
                 if (ret < 0) { return -1; }
                 kh_value(sv_h, k_iter) = sv1;
+            } else {
+                if (sv1.ori1 != kh_value(sv_h, k_iter).ori1 || sv1.ori2 != kh_value(sv_h, k_iter).ori2 ||
+                        sv1.type != kh_value(sv_h, k_iter).type || sv1.qdist != kh_value(sv_h, k_iter).qdist) {
+                    sv_t sv2 = kh_value(sv_h, k_iter);
+                    fprintf(stderr, "SVs with matching breakpoints have differing values!\n");
+                    fprintf(stderr, "SV1 ori1=%d, ori2=%d, type=%c, qdist=%d\n", sv1.ori1, sv1.ori2, sv1.type, sv1.qdist);
+                    fprintf(stderr, "SV2 ori1=%d, ori2=%d, type=%c, qdist=%d\n", sv2.ori1, sv2.ori2, sv1.type, sv2.qdist);
+                }
             }
         }
     }

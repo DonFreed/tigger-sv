@@ -10,6 +10,8 @@
 typedef struct {
     int32_t tid;
     int32_t pos;
+    int qdist; // distance of the SV along the query (unitig)
+    char type;
     uint32_t genotyped:1, ori1:1, ori2:1, tmp:29; // whether the allele has been genotyped, orientation of the SV at the site. Same as ori in plp2sv.h
 } allele_t; 
 
