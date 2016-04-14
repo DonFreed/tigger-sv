@@ -129,8 +129,9 @@ int main(int argc, char *argv[])
     while ((ret = bam_mplp_auto(mplp, &tid, &pos, n_plp, plp)) > 0) { // iterate of positions with coverage
         int n_sv;
         n_sv = plp2sv(h, tid, pos, n, n_plp, plp, sv_h);
+        if (n_sv > 1) { fprintf(stderr, "Warning: more than two alleles detected at %s:%d\n", h->target_name[tid], pos); }
         if (n_sv) {
-            fprintf(stderr, "SV detected at %d:%d\n", tid, pos);
+            //fprintf(stderr, "SV detected at %d:%d\n", tid, pos);
             for (k_iter = kh_begin(sv_h); k_iter != kh_end(sv_h); ++k_iter) {
                 if (kh_exist(sv_h, k_iter)) {
                     sv1 = kh_value(sv_h, k_iter);
@@ -145,12 +146,14 @@ int main(int argc, char *argv[])
             kh_clear(sv_hash, sv_h);
         }
     }
+    /*
     for (k_iter = kh_begin(geno_h); k_iter != kh_end(geno_h); ++k_iter) {
         if (kh_exist(geno_h, k_iter)) {
             qual2 = kh_value(geno_h, k_iter);
             fprintf(stderr, "SV found with tid=%d, pos=%d\n", (int)qual2.tid, qual2.pos);
         }
     }
+    */
 
     print_header(h, optind, n, argv);
     genotype_sv(h, n, geno_h);
