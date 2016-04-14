@@ -6,7 +6,9 @@
 #include "htslib/kstring.h"
 #include "cigar.h"
 
-inline uint32_t cigar_get_qual(uint8_t *qual, int tdist, const uint32_t *cigar, int n_cigar)
+static inline void str2cigar(const char *s, i32array_t *cigar, int *n_cigar);
+
+uint32_t cigar_get_qual(uint8_t *qual, int tdist, const uint32_t *cigar, int n_cigar)
 {
     int k;
     int rdist = 0; // distance along the reference
@@ -33,7 +35,7 @@ inline uint32_t cigar_get_qual(uint8_t *qual, int tdist, const uint32_t *cigar, 
     return UINT32_MAX;
 }
 
-inline void parse_cigar(const uint32_t *cigar, int n_cigar, cigar_res_t *res)
+void parse_cigar(const uint32_t *cigar, int n_cigar, cigar_res_t *res)
 {
     int k;
     res->clip[0] = 0; res->clip[1] = 0; res->qlen = 0; res->rlen = 0; res->ins = 0; res->del = 0;
@@ -52,7 +54,7 @@ inline void parse_cigar(const uint32_t *cigar, int n_cigar, cigar_res_t *res)
     return;
 }
 
-inline void str2cigar(const char *s, i32array_t *cigar, int *n_cigar)
+static inline void str2cigar(const char *s, i32array_t *cigar, int *n_cigar)
 {
     const char *_s;
     uint32_t l = 0;
@@ -89,7 +91,7 @@ inline void str2cigar(const char *s, i32array_t *cigar, int *n_cigar)
     *n_cigar = cigar->n;
 }
 
-inline int parse_sa_tag(bam_hdr_t *h, kstring_t *sa, int is_front, int is_rev, int sv_qbeg, cigar_res_t *res, int *sa_is_rev, int *sa_qbeg, int *sa_tid, int *sa_pos)
+int parse_sa_tag(bam_hdr_t *h, kstring_t *sa, int is_front, int is_rev, int sv_qbeg, cigar_res_t *res, int *sa_is_rev, int *sa_qbeg, int *sa_tid, int *sa_pos)
 {
     iarray_t alns = {0, 0, 0};
     iarray_t fields = {0, 0, 0};

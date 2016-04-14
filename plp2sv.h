@@ -36,6 +36,6 @@ KHASH_MAP_INIT_INT64(sv_hash, sv_t)
  *  sv is data on detected structural variants (output)
  *  return is the number of detected structural variants.
  */
-inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, khash_t(sv_hash) *sv_h);
+int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, khash_t(sv_hash) *sv_h);
 
 #endif

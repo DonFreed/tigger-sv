@@ -131,13 +131,15 @@ int main(int argc, char *argv[])
         n_sv = plp2sv(h, tid, pos, n, n_plp, plp, sv_h);
         if (n_sv > 1) { fprintf(stderr, "Warning: more than two alleles detected at %s:%d\n", h->target_name[tid], pos); }
         if (n_sv) {
-            //fprintf(stderr, "SV detected at %d:%d\n", tid, pos);
+            /*
+            fprintf(stderr, "SV detected at %d:%d\n", tid, pos);
             for (k_iter = kh_begin(sv_h); k_iter != kh_end(sv_h); ++k_iter) {
                 if (kh_exist(sv_h, k_iter)) {
                     sv1 = kh_value(sv_h, k_iter);
                     fprintf(stderr, "SV tid1=%d, tid2=%d, pos1=%d, pos2=%d, ori1=%d, ori2=%d\n", sv1.tid1, sv1.tid2, sv1.pos1, sv1.pos2, sv1.ori1, sv1.ori2);
                 }
             }
+            */
             res = get_qual_data(h, tid, pos, n, n_plp, plp, n_sv, sv_h, geno_h, mp);
             if (res < 0) {
                 fprintf(stderr, "Error collecting quality data from reads\n");

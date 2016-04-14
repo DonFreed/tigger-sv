@@ -18,7 +18,7 @@ void mp_destroy(mempool_t *mp)
     free(mp);
 }
 
-inline void *mp_alloc(mempool_t *mp, size_t size)
+void *mp_alloc(mempool_t *mp, size_t size)
 {
     int64_t i;
     if (mp->i + size >= mp->n_elems) {

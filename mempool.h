@@ -48,6 +48,6 @@ typedef struct {
 
 mempool_t *mp_init();
 void mp_destroy(mempool_t *mp);
-inline void *mp_alloc(mempool_t *mp, size_t size);
+void *mp_alloc(mempool_t *mp, size_t size);
 
 #endif

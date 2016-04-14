@@ -8,7 +8,7 @@
 #include "cigar.h"
 #include "array.h"
 
-inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, khash_t(sv_hash) *sv_h)
+int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_t **plp, khash_t(sv_hash) *sv_h)
 {
     int i, j, n_allele = 0, sv_qbeg, ret;
     uint8_t *tmp;
@@ -52,7 +52,7 @@ inline int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_p
             qpos1 += (sv1.ori1 ^ is_rev) ? cigar_res.qlen : 0;
             qpos2 = sa_is_rev ? sa_cig_res.clip[1] : sa_cig_res.clip[0];
             qpos2 += (sv1.ori2 ^ sa_is_rev) ? sa_cig_res.qlen : 0;
-            fprintf(stderr, "sa_qbeg = %d, sv_qbeg = %d, qpos1 = %d, qpos2 = %d\n", sa_qbeg, sv_qbeg, qpos1, qpos2);
+            //fprintf(stderr, "sa_qbeg = %d, sv_qbeg = %d, qpos1 = %d, qpos2 = %d\n", sa_qbeg, sv_qbeg, qpos1, qpos2);
             sv1.qdist = sa_qbeg < sv_qbeg ? qpos1 - qpos2 : qpos2 - qpos1;
 
             if (sv1.tid1 == sv1.tid2) {

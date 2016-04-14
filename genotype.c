@@ -122,10 +122,11 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h)
                     else if (min_idx == 1) { printf("\t0/1"); }
                     else { printf("\t1/1"); }
                     printf(":%d,%d,%d,%d", ref1, alt1, ref2, alt2);
-                    printf(":%d,%d,%d\n", pl[0], pl[1], pl[2]);
+                    printf(":%d,%d,%d", pl[0], pl[1], pl[2]);
                     dp1 += qual1.n_alleles;
                     dp2 += qual2.n_alleles;
                 }
+                putchar('\n');
             }
         }
     }
