@@ -48,6 +48,12 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
             } else {
                 qual_sum.div_sum += (float)1.0;
             }
+            if ((tmp = bam_aux_get(b, "AS"))) {
+                int as = bam_aux2i(tmp);
+                qual_sum.as_sum += as * as;
+            } else {
+                qual_sum.as_sum += 0;
+            }
             if (b->core.pos != pos && bam_endpos(b) != pos + 1) {
                 allele = 0;
                 rd_idx = (i * n_alleles) + allele;

@@ -19,8 +19,11 @@ void print_header(bam_hdr_t *h, int optind, int n, char *argv[])
     printf("##INFO=<ID=QGAP,Number=1,Type=Integer,Description=\"Length of the gap on the query sequence\">\n");
     printf("##INFO=<ID=MAPQ,Number=1,Type=Float,Description=\"RMS mapping quality of supporing alignments\">\n");
     printf("##INFO=<ID=DIV,Number=1,Type=Float,Description=\"RMS divergence of supporting alignments\">\n");
+    printf("##INFO=<ID=QLEN,Number=1,Type=Float,Description=\"RMS length of supporting alignments along the query\">\n");
     //printf("##INFO=<ID=SC,Number=1,Type=Integer,Description=\"RMS alignment score of supporting alignments\">\n");
     //printf("##INFO=<ID=TIPQ,Number=1,Type=Integer,Description=\"RMS quality/depth of the supporting alignments\">\n");
+    printf("##FORMAT=<ID=BPD,Number=4,Type=Integer,Description=\"Depths at breakpoint bp1_ref, bp1_alt, bp2_ref, bp2_alt\">\n");
+    printf("##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred-scaled genotype likelihoods rounded to the nearest integer\">\n");
     for (i = 0; i < h->n_targets; ++i) {
         printf("##contig=<ID=%s,length=%" PRIu32 ">\n", h->target_name[i], h->target_len[i]);
     }
@@ -80,23 +83,24 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h)
                 }
                 printf("%s\t%d\t.\tN", h->target_name[tid], pos);
                 if (a1[i].type == 'D') {
-                    printf("\t<DEL>\t.\tSVTYPE=DEL;END=%d;", end_pos);
+                    printf("\t<DEL>\t.\t.\tSVTYPE=DEL;END=%d;", end_pos);
                 } else if (a1[i].type == 'I') {
-                    printf("\t<INS>\t.\tSVTYPE=INS;END=%d;", end_pos);
+                    printf("\t<INS>\t.\t.\tSVTYPE=INS;END=%d;", end_pos);
                 } else {
                     char dir = ori2 ? ']' : '[';
                     if (ori1) {
-                        printf("\tN%c%s:%d%c\t.\t", dir, h->target_name[end_tid], end_pos, dir);
+                        printf("\tN%c%s:%d%c\t.\t.\t", dir, h->target_name[end_tid], end_pos, dir);
                     } else {
-                        printf("\t%c%s:%d%cN\t.\t", dir, h->target_name[end_tid], end_pos, dir);
+                        printf("\t%c%s:%d%cN\t.\t.\t", dir, h->target_name[end_tid], end_pos, dir);
                     }
                 }
                 printf("QGAP=%d;", a1[i].qdist);
                 printf("MAPQ=%.2f;", sqrt((double)(qual1.mq_sum + qual2.mq_sum) / (qual1.n_reads + qual2.n_reads)));
                 printf("DIV=%.3f;", sqrt((qual1.div_sum + qual2.div_sum) / (qual1.n_reads + qual2.n_reads)));
-                printf("QLEN=%.2f", sqrt((double)(qual1.qlen_sum + qual2.qlen_sum) / (qual1.n_reads + qual2.n_reads)));
-                
-                // Genotpe //
+                printf("QLEN=%.2f;", sqrt((double)(qual1.qlen_sum + qual2.qlen_sum) / (qual1.n_reads + qual2.n_reads)));
+                printf("SC=%.2f", sqrt((qual1.as_sum + qual2.as_sum) / (qual1.n_reads + qual2.n_reads)));
+
+                // Genotype //
                 // Assume diploid //
                 printf("\tGT:BPD:PL");
                 dp1 = qual1.read_data;

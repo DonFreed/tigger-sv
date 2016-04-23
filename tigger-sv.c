@@ -81,8 +81,6 @@ int main(int argc, char *argv[])
     khiter_t k_iter;
     khash_t(sv_hash) *sv_h = kh_init(sv_hash);
     khash_t(sv_geno) *geno_h = kh_init(sv_geno);
-    //qual_vec_t *quals;
-    //read_qual_t *qual1;
     mempool_t *mp;
     
     o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10;
@@ -148,14 +146,6 @@ int main(int argc, char *argv[])
             kh_clear(sv_hash, sv_h);
         }
     }
-    /*
-    for (k_iter = kh_begin(geno_h); k_iter != kh_end(geno_h); ++k_iter) {
-        if (kh_exist(geno_h, k_iter)) {
-            qual2 = kh_value(geno_h, k_iter);
-            fprintf(stderr, "SV found with tid=%d, pos=%d\n", (int)qual2.tid, qual2.pos);
-        }
-    }
-    */
 
     print_header(h, optind, n, argv);
     genotype_sv(h, n, geno_h);

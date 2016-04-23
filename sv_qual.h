@@ -21,6 +21,7 @@ typedef struct {
     uint32_t mq_sum; // sums of squares of mapq
     double div_sum;
     uint32_t qlen_sum;
+    uint32_t as_sum; // alignment score
     uint32_t n_reads; // number of reads found at the site
     uint8_t n_alleles; // number of identified alleles
     uint16_t *read_data; // pointer to an array of (n * a) with n = # of individuals and a = # of alleles
