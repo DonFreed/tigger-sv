@@ -9,6 +9,10 @@
 #include "mempool.h"
 #include "genotype.h"
 
+void *bed_read(const char *fn);
+void bed_destroy(void *_h);
+int bed_overlap(const void *_h, const char *chr, int beg, int end);
+
 typedef struct {
     samFile *fp;
     bam_hdr_t *hdr;
@@ -48,6 +52,7 @@ int read_bam(void *data, bam1_t *b)
 
 typedef struct {
     int min_q, min_s, min_len, min_dp;
+    void *bed;
 } cmdopt_t;
 
 void usage(FILE *fp, cmdopt_t *o)
@@ -64,7 +69,8 @@ void usage(FILE *fp, cmdopt_t *o)
     fprintf(fp, "  -q INT       minimum mapping quality for alignments [%d]\n", o->min_q);
     fprintf(fp, "  -s INT       minimum alignment score [%d]\n", o->min_s);
     fprintf(fp, "  -l INT       minimum unitig length [%d]\n", o->min_len);
-    fprintf(fp, "  -d INT       minimum breakpoint depth [%d]\n\n", o->min_dp);
+    fprintf(fp, "  -d INT       minimum breakpoint depth [%d]\n", o->min_dp);
+    fprintf(fp, "  -b FILE      call variants overlapping intervals in the BED file\n\n");
 }
 
 int main(int argc, char *argv[])
@@ -83,13 +89,18 @@ int main(int argc, char *argv[])
     khash_t(sv_geno) *geno_h = kh_init(sv_geno);
     mempool_t *mp;
     
-    o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10;
-    while ((c = getopt(argc, argv, "hq:s:l:d:")) >= 0) {
+    o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10; o.bed = 0;
+    while ((c = getopt(argc, argv, "hq:s:l:d:b:")) >= 0) {
         if (c == 'h') { usage(stderr, &o); return 0; }
         else if (c == 'q') o.min_q = atoi(optarg);
         else if (c == 's') o.min_s = atoi(optarg);
         else if (c == 'l') o.min_len = atoi(optarg);
         else if (c == 'd') o.min_dp = atoi(optarg);
+        else if (c == 'b') { 
+            if ((o.bed = bed_read(optarg)) == NULL) {
+                return -1;
+            }
+        }
     }
     
     if (argc - optind < 1) {
@@ -126,6 +137,7 @@ int main(int argc, char *argv[])
     mp = mp_init();
     while ((ret = bam_mplp_auto(mplp, &tid, &pos, n_plp, plp)) > 0) { // iterate of positions with coverage
         int n_sv;
+        if (o.bed && tid >= 0 && !bed_overlap(o.bed, h->target_name[tid], pos, pos+1)) continue;
         n_sv = plp2sv(h, tid, pos, n, n_plp, plp, sv_h);
         if (n_sv > 1) { fprintf(stderr, "Warning: more than two alleles detected at %s:%d\n", h->target_name[tid], pos); }
         if (n_sv) {
@@ -154,6 +166,7 @@ int main(int argc, char *argv[])
     free(plp);
     bam_mplp_destroy(mplp);
     mp_destroy(mp);
+    if (o.bed) bed_destroy(o.bed);
     for (i = 0; i < n; ++i) { 
         bam_hdr_destroy(data[i]->hdr);
         sam_close(data[i]->fp);

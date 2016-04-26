@@ -1,7 +1,7 @@
 CC=				gcc
 CFLAGS=			-g -Wall
 CPPFLAGS=		-Ihtslib
-OBJS=			tigger-sv.o plp2sv.o cigar.o sv_qual.o mempool.o genotype.o
+OBJS=			tigger-sv.o plp2sv.o cigar.o sv_qual.o mempool.o genotype.o bedidx.o
 PROG=			tigger-sv
 
 .SUFFIXES:.c .o
