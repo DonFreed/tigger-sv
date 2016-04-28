@@ -34,7 +34,7 @@ void print_header(bam_hdr_t *h, int optind, int n, char *argv[])
     putchar('\n');
 }
 
-int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h)
+int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
 {
     int i, j, l, m;
     khiter_t k1, k2;
@@ -47,14 +47,14 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h)
             qual1 = kh_value(geno_h, k1);
             a1 = qual1.alleles;
             for (i = 0; i < qual1.n_alleles; ++i) {
-                int tid, pos, end_tid, end_pos, ori1, ori2;
+                int tid, pos, end_tid, end_pos, ori1, ori2, _min_dp;
                 double p_alt[3] = { 0.05, 0.5, 0.99 };
                 if (a1[i].genotyped) { continue; }
                 id = (uint64_t)a1[i].tid << 32 | a1[i].pos;
                 k2 = kh_get(sv_geno, geno_h, id);
                 if (k2 == kh_end(geno_h)) {
                     fprintf(stderr, "Error: breakpoint mate not found.\n");
-                    return -1;
+                    continue;
                 }
                 qual2 = kh_value(geno_h, k2);
                 a2 = qual2.alleles;
@@ -63,9 +63,20 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h)
                 }
                 if (j == qual2.n_alleles) {
                     fprintf(stderr, "Error: breakpoint does not have a matching allele.\n");
-                    return -1;
+                    continue;
                 }
                 a1[i].genotyped = 1; a2[j].genotyped = 1;
+                dp1 = qual1.read_data; dp2 = qual2.read_data;
+                for (l = 0, _min_dp = 0; l < n; ++l) {
+                    _min_dp += dp1[1];
+                    dp1 += qual1.n_alleles;
+                }
+                if (_min_dp < min_dp) continue;
+                for (l = 0, _min_dp = 0; l < n; ++l) {
+                    _min_dp += dp2[1];
+                    dp2 += qual2.n_alleles;
+                }
+                if (_min_dp < min_dp) continue;
                 if (qual1.tid < qual2.tid || (qual1.tid == qual2.tid && qual1.pos < qual2.pos)) {
                     tid = qual1.tid;
                     pos = qual1.pos;

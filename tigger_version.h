@@ -1,1 +1,1 @@
-#define TIGGERSV_VERSION "r20"
+#define TIGGERSV_VERSION "r24"

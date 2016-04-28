@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
     }
 
     print_header(h, optind, n, argv);
-    genotype_sv(h, n, geno_h);
+    genotype_sv(h, n, geno_h, o.min_dp);
 
     free(n_plp);
     free(plp);
