@@ -100,12 +100,14 @@ inline void print_genotype(qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, 
             min_pl = pl[i];
         }
     }
+    fprintf(stderr, "pl_idx is %d\n", pl_idx);
     for (i = 0;; ++i) {
         if ( (i + 1) * (i + 2) / 2 > pl_idx) {
+            fprintf(stderr, "with i=%d, %d is greater than %d\n", i, (i + 1) * (i + 2) / 2, pl_idx);
             break;
         }
     }
-    j = ( (i + 1) * (i + 2) / 2 ) - pl_idx - 1;
+    j = i - (( (i + 1) * (i + 2) / 2 ) - pl_idx - 1);
     printf("%d/%d:", j, i);
 
     printf("%d", dp1[0]);
