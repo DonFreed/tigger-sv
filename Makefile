@@ -1,5 +1,5 @@
 CC=				gcc
-CFLAGS=			-g -Wall
+CFLAGS=			-g -Wall -O2
 CPPFLAGS=		-Ihtslib
 OBJS=			tigger-sv.o plp2sv.o cigar.o sv_qual.o mempool.o genotype.o bedidx.o
 PROG=			tigger-sv

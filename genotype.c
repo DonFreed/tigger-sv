@@ -58,7 +58,7 @@ inline void print_genotype(qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, 
                 for (k = 0; k < n_var; ++k) {
                     dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
                     pl[pl_idx] += dp2[0] * log10(1.0 - p_hom);
-                    if (k == i) {
+                    if (k + 1 == i) {
                         pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_hom);
                         pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_hom);
                     } else {
