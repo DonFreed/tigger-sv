@@ -93,6 +93,7 @@ int plp2sv(bam_hdr_t *h, int tid, int pos, int n, int *n_plp, const bam_pileup1_
                         sv1.type != kh_value(sv_h, k_iter).type || sv1.qdist != kh_value(sv_h, k_iter).qdist) {
                     sv_t sv2 = kh_value(sv_h, k_iter);
                     fprintf(stderr, "SVs with matching breakpoints have differing values!\n");
+                    fprintf(stderr, "tid1=%d, tid2=%d, pos1=%d, pos2=%d\n", sv1.tid1, sv1.tid2, sv1.pos1, sv1.pos2);
                     fprintf(stderr, "SV1 ori1=%d, ori2=%d, type=%c, qdist=%d\n", sv1.ori1, sv1.ori2, sv1.type, sv1.qdist);
                     fprintf(stderr, "SV2 ori1=%d, ori2=%d, type=%c, qdist=%d\n", sv2.ori1, sv2.ori2, sv1.type, sv2.qdist);
                 }

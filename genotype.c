@@ -44,7 +44,7 @@ inline void print_genotype(qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, 
     pl = (double*)calloc(n_pl, sizeof(double));
     dp1 = qual1->read_data + qual1->n_alleles * l;
     for (pl_idx = 0, i = 0; i <= n_var; ++i) {
-        for (j = 0; j <= i; ++j) {
+        for (j = 0; j <= i; ++j, ++pl_idx) {
             if (i == 0 && j == 0) {
                 pl[pl_idx] += dp1[0] * log10(1.0 - p_err);
                 for (k = 0; k < n_var; ++k) {
@@ -74,7 +74,11 @@ inline void print_genotype(qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, 
                 }
                 for (k = 0; k < n_var; ++k) {
                     dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
-                    pl[pl_idx] += dp2[0] * log10(1.0 - p_het);
+                    if (j == 0) {
+                        pl[pl_idx] += dp2[0] * log10(1.0 - p_het);
+                    } else {
+                        pl[pl_idx] += dp2[0] * log10(1.0 - p_hom);
+                    }
                     if (k == i || k == j) {
                         pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_het);
                         pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_het);
@@ -84,8 +88,11 @@ inline void print_genotype(qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, 
                     }
                 }
             }
-            pl_idx += 1;
+            fprintf(stderr, "i is %d, j is %d, pl_idx is %d, pl=[%f,%f,%f]\n", i, j, pl_idx, pl[0], pl[1], pl[2]);
         }
+    }
+    for (i = 0; i < n_pl; ++i) {
+        pl[i] = pl[i] * -10;
     }
     for (i = 0, pl_idx = 0, min_pl = pl[0]; i < n_pl; ++i) {
         if (pl[i] < min_pl) {
@@ -134,20 +141,20 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
         if (kh_exist(geno_h, k1)) {
             qual1 = &(kh_value(geno_h, k1));
             a1 = qual1->alleles;
-            for (i = 0, n_var = 0; i < qual1->n_alleles; ++i) {
-                if (a1[i].genotyped) continue;
+            for (i = 0, n_var = 0; i + 1 < qual1->n_alleles; ++i) {
+                if (a1[i].genotyped) { fprintf(stderr, "Allele %d genotyped\n", i); continue; }
                 id = (uint64_t)a1[i].tid << 32 | a1[i].pos;
                 k2 = kh_get(sv_geno, geno_h, id);
                 if (k2 == kh_end(geno_h)) {
-                    fprintf(stderr, "Error: breakpoint mate not found at %d:%d.\n", (int)a1[i].tid, (int)a1[i].pos);
+                    fprintf(stderr, "Error: breakpoint mate of %d:%d not found at %d:%d.\n", (int)qual1->tid, (int)qual1->pos, (int)a1[i].tid, (int)a1[i].pos);
                     continue;
                 }
                 qtmp = &(kh_value(geno_h, k2));
                 a2 = qtmp->alleles;
-                for (j = 0; j < qtmp->n_alleles; ++j) {
+                for (j = 0; j + 1 < qtmp->n_alleles; ++j) {
                     if (qual1->tid == a2[j].tid && qual1->pos == a2[j].pos) break;
                 }
-                if (j == qtmp->n_alleles) {
+                if (j + 1 == qtmp->n_alleles) {
                     fprintf(stderr, "Error: breakpoint does not have a corresponding allele from %d:%d to %d:%d.\n", (int)qual1->tid, (int)qual1->pos, (int)a1[i].tid, (int)a1[i].pos);
                     continue;
                 }
@@ -157,17 +164,18 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                     allele_dp += dp1[i + 1];
                     dp1 += qual1->n_alleles;
                 }
-                if (allele_dp < min_dp) continue;
+                if (allele_dp < min_dp) { fprintf(stderr, "Allele %d less than minimum depth\n", i); continue; }
                 for (l = 0, allele_dp = 0; l < n; ++l) {
                     allele_dp += dp2[j + 1];
                     dp2 += qtmp->n_alleles;
                 }
-                if (allele_dp < min_dp) continue;
+                if (allele_dp < min_dp) { fprintf(stderr, "Allele %d less than minimum depth\n", i); continue; }
                 if (n_var >= m_var) {
                     m_var = m_var ? m_var << 1 : 1;
                     qual2 = (qual_sum_t**)realloc(qual2, m_var * sizeof(qual_sum_t*));
                     var_idx = (int*)realloc(var_idx, m_var * sizeof(int) * 2);
                 }
+                fprintf(stderr, "At %d:%d, adding i=%d and j=%d\n", qual1->tid, qual1->pos, i, j);
                 var_idx[n_var * 2] = i;
                 var_idx[n_var * 2 + 1] = j;
                 qual2[n_var++] = qtmp;
@@ -175,6 +183,7 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
             if (n_var) { // variants to genotype were found
                 double div_sum = 0;
                 int mq_sum = 0, qlen_sum = 0, as_sum = 0, n_reads = 0;
+                fprintf(stderr, "%d variants to genotype\n", n_var);
                 printf("%s\t%d\t.\tN\t", h->target_name[qual1->tid], qual1->pos);
                 for (i = 0; i < n_var; ++i) {
                     // print allele information //
