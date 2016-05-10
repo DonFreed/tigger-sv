@@ -10,19 +10,20 @@ void print_header(bam_hdr_t *h, int optind, int n, char *argv[])
     int i;
     printf("##fileformat=VCFv4.2\n");
     printf("##source=tigger-sv-%s\n", TIGGERSV_VERSION);
-    printf("##ALT=<ID=DEL,Description=\"Deletion relative to the reference genome\">\n");
-    printf("##ALT=<ID=INS,Description=\"Insertion relative to the reference genome\">\n");
-    printf("##ALT=<ID=INV,Description=\"Inversion relative to the reference genome\">\n");
-    printf("##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of the structural variant along the reference\">\n");
-    printf("##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of structural variant\">\n");
+    //printf("##ALT=<ID=DEL,Description=\"Deletion relative to the reference genome\">\n");
+    //printf("##ALT=<ID=INS,Description=\"Insertion relative to the reference genome\">\n");
+    //printf("##ALT=<ID=INV,Description=\"Inversion relative to the reference genome\">\n");
+    //printf("##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of the structural variant along the reference\">\n");
+    //printf("##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of structural variant\">\n");
     printf("##INFO=<ID=END,Number=1,Type=Integer,Description=\"End coordinate of the variant\">\n");
-    printf("##INFO=<ID=QGAP,Number=1,Type=Integer,Description=\"Length of the gap on the query sequence\">\n");
+    printf("##INFO=<ID=QGAP,Number=A,Type=Integer,Description=\"Length of the gap on the query sequence\">\n");
     printf("##INFO=<ID=MAPQ,Number=1,Type=Float,Description=\"RMS mapping quality of supporing alignments\">\n");
     printf("##INFO=<ID=DIV,Number=1,Type=Float,Description=\"RMS divergence of supporting alignments\">\n");
     printf("##INFO=<ID=QLEN,Number=1,Type=Float,Description=\"RMS length of supporting alignments along the query\">\n");
     printf("##INFO=<ID=SC,Number=1,Type=Integer,Description=\"RMS alignment score of supporting alignments\">\n");
+    printf("##INFO=<ID=AS_SC,Number=R,Type=Float,Description=\"RMS alignment score of alignments supporting the alternate allele(s)\"\n");
     //printf("##INFO=<ID=TIPQ,Number=1,Type=Integer,Description=\"RMS quality/depth of the supporting alignments\">\n");
-    printf("##FORMAT=<ID=BPD,Number=4,Type=Integer,Description=\"Depths at breakpoint(s). All reference alleles are listed first followed by alternate allele pairs\">\n");
+    printf("##FORMAT=<ID=BPD,Number=.,Type=Integer,Description=\"Depths at breakpoint(s). All reference alleles are listed first followed by alternate allele pairs\">\n");
     printf("##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred-scaled genotype likelihoods rounded to the nearest integer\">\n");
     for (i = 0; i < h->n_targets; ++i) {
         printf("##contig=<ID=%s,length=%" PRIu32 ">\n", h->target_name[i], h->target_len[i]);
@@ -184,7 +185,7 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
             }
             if (n_var) { // variants to genotype were found
                 double div_sum = 0;
-                int mq_sum = 0, qlen_sum = 0, as_sum = 0, n_reads = 0;
+                int mq_sum = 0, qlen_sum = 0, as_sum = 0, n_reads = 0, as_score = 0, as_reads = 0;
                 fprintf(stderr, "%d variants to genotype\n", n_var);
                 printf("%s\t%d\t.\tN\t", h->target_name[qual1->tid], qual1->pos);
                 for (i = 0; i < n_var; ++i) {
@@ -214,7 +215,22 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                     n_reads += qual1->n_reads;
                     n_reads += qual2[i]->n_reads;
                 }
-                printf(";MAPQ=%.2f;DIV=%.3f;QLEN=%.2f;SC=%.2f", sqrt((double)mq_sum / n_reads), sqrt(div_sum / n_reads), sqrt((double)qlen_sum / n_reads), sqrt((double)as_sum / n_reads));
+                printf(";MAPQ=%.2f;DIV=%.3f;QLEN=%.2f;SC=%.2f;AS_SC=", sqrt((double)mq_sum / n_reads), sqrt(div_sum / n_reads), sqrt((double)qlen_sum / n_reads), sqrt((double)as_sum / n_reads));
+                as_score += qual1->as_score[0];
+                as_reads += qual1->as_reads[0];
+                for (i = 0; i < n_var; ++i) {
+                    as_score += qual2[i]->as_score[0];
+                    as_reads += qual2[i]->as_reads[0];
+                }
+                printf("%.2f", sqrt((double)as_score / as_reads));
+                as_score = 0; as_reads = 0;
+                for (i = 0; i < n_var; ++i) {
+                    as_score += qual1->as_score[var_idx[i * 2] + 1];
+                    as_score += qual2[i]->as_score[var_idx[i * 2 + 1] + 1];
+                    as_reads += qual1->as_reads[var_idx[i * 2] + 1];
+                    as_reads += qual2[i]->as_reads[var_idx[i * 2 + 1] + 1];
+                    printf(",%.2f", sqrt((double)as_score / as_reads));
+                }
                 // Genotype //
                 printf("\tGT:BPD:PL");
                 for (l = 0; l < n; ++l) {

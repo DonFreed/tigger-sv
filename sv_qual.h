@@ -22,6 +22,8 @@ typedef struct {
     double div_sum;
     uint32_t qlen_sum;
     uint32_t as_sum; // alignment score
+    uint32_t *as_score; // alignment scores for each allele
+    uint32_t *as_reads; // number of reads (unitigs) for each allele
     uint32_t n_reads; // number of reads found at the site
     uint8_t n_alleles; // number of identified alleles
     uint16_t *read_data; // pointer to an array of (n * a) with n = # of individuals and a = # of alleles

@@ -25,11 +25,13 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
     qual_sum.n_alleles = n_alleles;
     qual_sum.read_data = (uint16_t*)mp_alloc(mp, sizeof(uint16_t) * n * (n_alleles));
     qual_sum.alleles = (allele_t*)mp_alloc(mp, sizeof(allele_t) * n_alleles - 1);
+    qual_sum.as_score = (uint32_t*)mp_alloc(mp, sizeof(uint32_t) * (n_alleles));
+    qual_sum.as_reads = (uint32_t*)mp_alloc(mp, sizeof(uint32_t) * (n_alleles));
 
     // read data //
     for (i = 0; i < n; ++i) {
         for (j = 0; j < n_plp[i]; ++j) {
-            int rd_idx, dp, allele, is_fwd;
+            int rd_idx, dp, allele, is_fwd, as = 0;
             //fprintf(stderr, "Reading read %d from individual %d\n", j, i);
             b = plp[i][j].b;
             qual_sum.mq_sum += b->core.qual * b->core.qual;
@@ -50,7 +52,7 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
                 qual_sum.div_sum += (float)1.0;
             }
             if ((tmp = bam_aux_get(b, "AS"))) {
-                int as = bam_aux2i(tmp);
+                as = bam_aux2i(tmp);
                 qual_sum.as_sum += as * as;
             } else {
                 qual_sum.as_sum += 0;
@@ -59,6 +61,8 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
                 allele = 0;
                 rd_idx = (i * n_alleles) + allele;
                 qual_sum.read_data[rd_idx] += dp;
+                qual_sum.as_score[allele] += as * as;
+                qual_sum.as_reads[allele] += 1;
                 continue;
             }
             tmp = bam_aux_get(b, "SA");
@@ -66,6 +70,8 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
                 allele = 0; 
                 rd_idx = (i * n_alleles) + allele;
                 qual_sum.read_data[rd_idx] += dp;
+                qual_sum.as_score[allele] += as * as;
+                qual_sum.as_reads[allele] += 1;
                 continue;
             }
             s = bam_aux2Z(tmp);
@@ -90,12 +96,13 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
             if (k_iter != kh_end(sv_h)) {
                 allele = kh_value(sv_h, k_iter).allele + 1;
                 rd_idx = (i * n_alleles) + allele;
-                qual_sum.read_data[rd_idx] += dp;
             } else {
                 allele = 0;
                 rd_idx = (i * n_alleles) + allele;
-                qual_sum.read_data[rd_idx] += dp;
             }
+            qual_sum.read_data[rd_idx] += dp;
+            qual_sum.as_score[allele] += as * as;
+            qual_sum.as_reads[allele] += 1;
         }
         qual_sum.n_reads += n_plp[i];
     }
@@ -115,6 +122,12 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
 
     fprintf(stderr, "Adding sv qual with:\n");
     fprintf(stderr, "  tid=%d, pos=%d, mq=%d, div=%f, qlen=%d, as=%d, n_reads=%d, n_alleles=%d\n", (int)qual_sum.tid, (int)qual_sum.pos, (int)qual_sum.mq_sum, qual_sum.div_sum, (int)qual_sum.qlen_sum, (int)qual_sum.as_sum, (int)qual_sum.n_reads, (int)qual_sum.n_alleles);
+    fprintf(stderr, "  score-dp=");
+    for (j = 0; j < n_alleles; ++j) {
+        if (j) fprintf(stderr, ",");
+        fprintf(stderr, "%d-%d", qual_sum.as_score[j], qual_sum.as_reads[j]); 
+    }
+    fprintf(stderr, "\n");
     fprintf(stderr, "  depth=");
     for (i = 0; i < n; ++i) {
         for (j = 0; j < n_alleles; ++j) {
