@@ -4,6 +4,24 @@
 #include <float.h>
 #include "tigger_version.h"
 #include "genotype.h"
+#include "asa147.h"
+
+genotype_t *gts_init(int n, int n_var)
+{
+    genotype_t *gts = (genotype_t*)calloc(n, sizeof(genotype_t));
+    int i, n_pl = (n_var + 1) * (n_var + 2) / 2;
+    int *pl = (int*)calloc(n * n_pl, sizeof(int));
+    for (i = 0; i < n; ++i, pl += n_pl) {
+        gts[i].pl = pl;
+    }
+    return gts;
+}
+
+void gts_destroy(genotype_t *gts)
+{
+    free(gts[0].pl);
+    free(gts);
+}
 
 void print_header(bam_hdr_t *h, int optind, int n, char *argv[])
 {
@@ -25,6 +43,7 @@ void print_header(bam_hdr_t *h, int optind, int n, char *argv[])
     //printf("##INFO=<ID=TIPQ,Number=1,Type=Integer,Description=\"RMS quality/depth of the supporting alignments\">\n");
     printf("##INFO=<ID=BPD,Number=.,Type=Integer,Description=\"Depths at breakpoint(s). All reference alleles are listed first followed by alternate allele pairs\">\n");
     printf("##FORMAT=<ID=BPD,Number=.,Type=Integer,Description=\"Depths at breakpoint(s). All reference alleles are listed first followed by alternate allele pairs\">\n");
+    printf("##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype quality\">\n");
     printf("##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred-scaled genotype likelihoods rounded to the nearest integer\">\n");
     for (i = 0; i < h->n_targets; ++i) {
         printf("##contig=<ID=%s,length=%" PRIu32 ">\n", h->target_name[i], h->target_len[i]);
@@ -38,95 +57,116 @@ void print_header(bam_hdr_t *h, int optind, int n, char *argv[])
 
 double p_err = 0.05, p_het = 0.5, p_hom = 0.99;
 
-inline void print_genotype(qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, int n_var, int l) {
+inline void genotype_samples(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, int n_var, int n) {
     int n_pl = (n_var + 1) * (n_var + 2) / 2;
-    int i, j, k, min_pl, pl_idx;
-    double *pl;
+    int i, j, k, l, min_pl, pl_idx, next_min_pl;
     uint16_t *dp1, *dp2;
-    pl = (double*)calloc(n_pl, sizeof(double));
-    dp1 = qual1->read_data + qual1->n_alleles * l;
-    for (pl_idx = 0, i = 0; i <= n_var; ++i) {
-        for (j = 0; j <= i; ++j, ++pl_idx) {
-            if (i == 0 && j == 0) {
-                pl[pl_idx] += dp1[0] * log10(1.0 - p_err);
-                for (k = 0; k < n_var; ++k) {
-                    dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
-                    pl[pl_idx] += dp2[0] * log10(1.0 - p_err);
-                    pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_err);
-                    pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_err);
-                }
-            } else if (i == j) {
-                pl[pl_idx] += dp1[0] * log10(1.0 - p_hom);
-                for (k = 0; k < n_var; ++k) {
-                    dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
-                    pl[pl_idx] += dp2[0] * log10(1.0 - p_hom);
-                    if (k + 1 == i) {
-                        pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_hom);
-                        pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_hom);
-                    } else {
+    double *pl = (double*)malloc(sizeof(double) * n_pl);
+    for (l = 0; l < n; ++l) {
+        memset(pl, 0.0, sizeof(double) * n_pl);
+        dp1 = qual1->read_data + qual1->n_alleles * l;
+        for (pl_idx = 0, i = 0; i <= n_var; ++i) {
+            for (j = 0; j <= i; ++j, ++pl_idx) {
+                if (i == 0 && j == 0) {
+                    pl[pl_idx] += dp1[0] * log10(1.0 - p_err);
+                    for (k = 0; k < n_var; ++k) {
+                        dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
+                        pl[pl_idx] += dp2[0] * log10(1.0 - p_err);
                         pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_err);
                         pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_err);
                     }
-                }
-            } else {
-                if (j == 0) {
-                    pl[pl_idx] += dp1[0] * log10(1.0 - p_het);
-                } else {
+                } else if (i == j) {
                     pl[pl_idx] += dp1[0] * log10(1.0 - p_hom);
-                }
-                for (k = 0; k < n_var; ++k) {
-                    dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
-                    if (j == 0) {
-                        pl[pl_idx] += dp2[0] * log10(1.0 - p_het);
-                    } else {
+                    for (k = 0; k < n_var; ++k) {
+                        dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
                         pl[pl_idx] += dp2[0] * log10(1.0 - p_hom);
+                        if (k + 1 == i) {
+                            pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_hom);
+                            pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_hom);
+                        } else {
+                            pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_err);
+                            pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_err);
+                        }
                     }
-                    if (k == i || k == j) {
-                        pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_het);
-                        pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_het);
+                } else {
+                    if (j == 0) {
+                        pl[pl_idx] += dp1[0] * log10(1.0 - p_het);
                     } else {
-                        pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_err);
-                        pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_err);
+                        pl[pl_idx] += dp1[0] * log10(1.0 - p_hom);
+                    }
+                    for (k = 0; k < n_var; ++k) {
+                        dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
+                        if (j == 0) {
+                            pl[pl_idx] += dp2[0] * log10(1.0 - p_het);
+                        } else {
+                            pl[pl_idx] += dp2[0] * log10(1.0 - p_hom);
+                        }
+                        if (k + 1 == i || k + 1 == j) {
+                            pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_het);
+                            pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_het);
+                        } else {
+                            pl[pl_idx] += dp1[var_idx[k * 2] + 1] * log10(p_err);
+                            pl[pl_idx] += dp2[var_idx[k * 2 + 1] + 1] * log10(p_err);
+                        }
                     }
                 }
+                fprintf(stderr, "i is %d, j is %d, pl_idx is %d, pl=[%f,%f,%f]\n", i, j, pl_idx, pl[0], pl[1], pl[2]);
             }
-            fprintf(stderr, "i is %d, j is %d, pl_idx is %d, pl=[%f,%f,%f]\n", i, j, pl_idx, pl[0], pl[1], pl[2]);
         }
-    }
-    for (i = 0; i < n_pl; ++i) {
-        pl[i] = pl[i] * -10;
-    }
-    for (i = 0, pl_idx = 0, min_pl = pl[0]; i < n_pl; ++i) {
-        if (pl[i] < min_pl) {
-            pl_idx = i;
-            min_pl = pl[i];
+        for (i = 0; i < n_pl; ++i) {
+            pl[i] = pl[i] * -10;
         }
-    }
-    fprintf(stderr, "pl_idx is %d\n", pl_idx);
-    for (i = 0;; ++i) {
-        if ( (i + 1) * (i + 2) / 2 > pl_idx) {
-            fprintf(stderr, "with i=%d, %d is greater than %d\n", i, (i + 1) * (i + 2) / 2, pl_idx);
-            break;
+        for (i = 1, pl_idx = 0, min_pl = pl[0], next_min_pl = INT_MAX; i < n_pl; ++i) {
+            if (pl[i] < min_pl) {
+                pl_idx = i;
+                next_min_pl = min_pl;
+                min_pl = pl[i];
+            } else if (pl[i] < next_min_pl) {
+                next_min_pl = pl[i];
+            }
         }
-    }
-    j = i - (( (i + 1) * (i + 2) / 2 ) - pl_idx - 1);
-    printf("%d/%d:", j, i);
-
-    printf("%d", dp1[0]);
-    for (k = 0; k < n_var; ++k) {
-        dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
-        printf(",%d", dp2[0]);
-    }
-    for (k = 0; k < n_var; ++k) {
-        dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
-        printf(",%d,%d", dp1[var_idx[k * 2] + 1], dp2[var_idx[k * 2 + 1] + 1]);
-    }
-    putchar(':');
-    for (i = 0; i < n_pl; ++i) {
-        if (i) putchar(',');
-        printf("%d", (int)pl[i] - (int)pl[pl_idx]);
+        gts[l].gt = pl_idx;
+        gts[l].genotype_confidence = (int)next_min_pl - (int)min_pl;
+        for (i = 0; i < n_pl; ++i) {
+            gts[l].pl[i] = (int)pl[i] - (int)min_pl;
+        }
     }
     free(pl);
+    return;
+}
+
+inline void print_genotypes(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, int n_var, int n) {
+    int n_pl = (n_var + 1) * (n_var + 2) / 2;
+    int i, j, k, l, pl_idx;
+    uint16_t *dp1, *dp2;
+    printf("\tGT:BPD:GQ:PL");
+    for (l = 0; l < n; ++l) {
+        putchar('\t');
+        dp1 = qual1->read_data + qual1->n_alleles * l;
+        for (i = 0;; ++i) {
+            if ( (i + 1) * (i + 2) / 2 > gts[l].gt) {
+                fprintf(stderr, "with i=%d, %d is greater than %d\n", i, (i + 1) * (i + 2) / 2, pl_idx);
+                break;
+            }
+        }
+        j = i - (( (i + 1) * (i + 2) / 2 ) - gts[l].gt - 1);
+        printf("%d/%d:", j, i);
+
+        printf("%d", dp1[0]);
+        for (k = 0; k < n_var; ++k) {
+            dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
+            printf(",%d", dp2[0]);
+        }
+        for (k = 0; k < n_var; ++k) {
+            dp2 = qual2[k]->read_data + qual2[k]->n_alleles * l;
+            printf(",%d,%d", dp1[var_idx[k * 2] + 1], dp2[var_idx[k * 2 + 1] + 1]);
+        }
+        printf(":%d:", gts[l].genotype_confidence);
+        for (i = 0; i < n_pl; ++i) {
+            if (i) putchar(',');
+            printf("%d", gts[l].pl[i]);
+        }
+    }
     return;
 }
 
@@ -140,6 +180,7 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
     int *var_idx = 0, allele_dp;
     uint16_t *dp1, *dp2;
     uint64_t id;
+    genotype_t *gts;
 
     for (k1 = kh_begin(geno_h); k1 != kh_end(geno_h); ++k1) {
         if (kh_exist(geno_h, k1)) {
@@ -188,6 +229,8 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                 double div_sum = 0;
                 int mq_sum = 0, qlen_sum = 0, as_sum = 0, n_reads = 0, as_score = 0, as_reads = 0, dp, dp2;
                 fprintf(stderr, "%d variants to genotype\n", n_var);
+                gts = gts_init(n, n_var);
+                genotype_samples(gts, qual1, qual2, var_idx, n_var, n);
                 printf("%s\t%d\t.\tN\t", h->target_name[qual1->tid], qual1->pos);
                 for (i = 0; i < n_var; ++i) {
                     // print allele information //
@@ -251,12 +294,9 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                     printf(",%d,%d", dp, dp2);
                 }
                 // Genotype //
-                printf("\tGT:BPD:PL");
-                for (l = 0; l < n; ++l) {
-                    putchar('\t');
-                    print_genotype(qual1, qual2, var_idx, n_var, l);
-                }
+                print_genotypes(gts, qual1, qual2, var_idx, n_var, n);
                 putchar('\n');
+                gts_destroy(gts);
             }
         }
     }
