@@ -293,6 +293,29 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                     }
                     printf(",%d,%d", dp, dp2);
                 }
+                if (n_var < 2) { // Only analyze HWE at diploid sites
+                    int n_rhom = 0, n_het = 0, n_ahom = 0, res;
+                    double maf, chi2, expected, hwe;
+                    for (i = 0; i < n; ++i) {
+                        if (gts[i].genotype_confidence < 30) continue;
+                        if (gts[i].gt == 0) {
+                            ++n_rhom;
+                        } else if (gts[i].gt == 1) {
+                            ++n_het;
+                        } else {
+                            ++n_ahom;
+                        }
+                    }
+                    maf = ((double)n_ahom * 2.0 + (double)n_het) / (double)((n_rhom + n_het + n_ahom) * 2);
+                    expected = n * (1 - maf) * (1 - maf);
+                    chi2 = (n_rhom - expected) * (n_rhom - expected) / expected;
+                    expected = n * 2 * maf * (1 - maf);
+                    chi2 += (n_het - expected) * (n_het - expected) / expected;
+                    expected = n * maf * maf;
+                    chi2 += (n_ahom - expected) * (n_ahom - expected) / expected;
+                    hwe = gammds(chi2 / 2, 0.5, &res);
+                    printf(";HWE=%f", log(hwe) * -10);
+                }
                 // Genotype //
                 print_genotypes(gts, qual1, qual2, var_idx, n_var, n);
                 putchar('\n');
