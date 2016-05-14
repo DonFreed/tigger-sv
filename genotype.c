@@ -137,7 +137,7 @@ inline void genotype_samples(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qu
 
 inline void print_genotypes(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, int n_var, int n) {
     int n_pl = (n_var + 1) * (n_var + 2) / 2;
-    int i, j, k, l, pl_idx;
+    int i, j, k, l;
     uint16_t *dp1, *dp2;
     printf("\tGT:BPD:GQ:PL");
     for (l = 0; l < n; ++l) {
@@ -145,7 +145,7 @@ inline void print_genotypes(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qua
         dp1 = qual1->read_data + qual1->n_alleles * l;
         for (i = 0;; ++i) {
             if ( (i + 1) * (i + 2) / 2 > gts[l].gt) {
-                fprintf(stderr, "with i=%d, %d is greater than %d\n", i, (i + 1) * (i + 2) / 2, pl_idx);
+                fprintf(stderr, "with i=%d, %d is greater than %d\n", i, (i + 1) * (i + 2) / 2, gts[l].gt);
                 break;
             }
         }
