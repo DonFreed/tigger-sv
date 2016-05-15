@@ -11,6 +11,7 @@ genotype_t *gts_init(int n, int n_var)
     genotype_t *gts = (genotype_t*)calloc(n, sizeof(genotype_t));
     int i, n_pl = (n_var + 1) * (n_var + 2) / 2;
     int *pl = (int*)calloc(n * n_pl, sizeof(int));
+    fprintf(stderr, "Initalizing\n");
     for (i = 0; i < n; ++i, pl += n_pl) {
         gts[i].pl = pl;
     }
@@ -230,7 +231,9 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                 int mq_sum = 0, qlen_sum = 0, as_sum = 0, n_reads = 0, as_score = 0, as_reads = 0, dp, dp2;
                 fprintf(stderr, "%d variants to genotype\n", n_var);
                 gts = gts_init(n, n_var);
+                fprintf(stderr, "Genotypes initalized\n");
                 genotype_samples(gts, qual1, qual2, var_idx, n_var, n);
+                fprintf(stderr, "Genotyping finished\n");
                 printf("%s\t%d\t.\tN\t", h->target_name[qual1->tid], qual1->pos);
                 for (i = 0; i < n_var; ++i) {
                     // print allele information //
@@ -243,6 +246,7 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                         printf("%c%s:%d%cN", dir, h->target_name[qual2[i]->tid], qual2[i]->pos, dir);
                     }
                 }
+                fprintf(stderr, "Alleles printed at %s\t%d\n", h->target_name[qual1->tid], qual1->pos);
                 printf("\t.\t.\tQGAP=");
                 for (i = 0; i < n_var; ++i) {
                     // print the info field //
@@ -259,6 +263,7 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                     n_reads += qual1->n_reads;
                     n_reads += qual2[i]->n_reads;
                 }
+                fprintf(stderr, "Info printed\n");
                 printf(";MAPQ=%.2f;DIV=%.3f;QLEN=%.2f;SC=%.2f;AS_SC=", sqrt((double)mq_sum / n_reads), sqrt(div_sum / n_reads), sqrt((double)qlen_sum / n_reads), sqrt((double)as_sum / n_reads));
                 as_score += qual1->as_score[0];
                 as_reads += qual1->as_reads[0];
@@ -293,9 +298,10 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                     }
                     printf(",%d,%d", dp, dp2);
                 }
+                fprintf(stderr, "More info printed\n");
                 if (n_var < 2) { // Only analyze HWE at diploid sites
-                    int n_rhom = 0, n_het = 0, n_ahom = 0, res;
-                    double maf, chi2, expected, hwe;
+                    int n_rhom = 0, n_het = 0, n_ahom = 0, res, n_gt;
+                    double maf, chi2 = 0, expected, hwe;
                     for (i = 0; i < n; ++i) {
                         if (gts[i].genotype_confidence < 30) continue;
                         if (gts[i].gt == 0) {
@@ -306,19 +312,35 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                             ++n_ahom;
                         }
                     }
+                    n_gt = n_het + n_rhom + n_ahom;
                     maf = ((double)n_ahom * 2.0 + (double)n_het) / (double)((n_rhom + n_het + n_ahom) * 2);
-                    expected = n * (1 - maf) * (1 - maf);
-                    chi2 = (n_rhom - expected) * (n_rhom - expected) / expected;
-                    expected = n * 2 * maf * (1 - maf);
-                    chi2 += (n_het - expected) * (n_het - expected) / expected;
-                    expected = n * maf * maf;
-                    chi2 += (n_ahom - expected) * (n_ahom - expected) / expected;
-                    hwe = gammds(chi2 / 2, 0.5, &res);
-                    printf(";HWE=%f", log(hwe) * -10);
+                    fprintf(stderr, "hom ref = %d, het = %d, hom alt = %d, maf = %f\n", n_rhom, n_het, n_ahom, maf);
+                    expected = n_gt * (1 - maf) * (1 - maf);
+                    if (expected > 0.001) {
+                        chi2 += (n_rhom - expected) * (n_rhom - expected) / expected;
+                    }
+                    expected = n_gt * 2 * maf * (1 - maf);
+                    if (expected > 0.001) {
+                        chi2 += (n_het - expected) * (n_het - expected) / expected;
+                    }
+                    expected = n_gt * maf * maf;
+                    if (expected > 0.001) {
+                        chi2 += (n_ahom - expected) * (n_ahom - expected) / expected;
+                    }
+                    if (chi2 > 0.0001) {
+                        fprintf(stderr, "Finding HWE with %f and %f\n", chi2 / 2, 0.5);
+                        hwe = gammds(chi2 / 2, 0.5, &res);
+                        fprintf(stderr, "Found HWE=%f with result %d\n", hwe, res);
+                    } else {
+                        hwe = 0.0000001;
+                    }
+                    printf(";HWE=%f", log10(1 - hwe) * -10);
                 }
                 // Genotype //
+                fprintf(stderr, "Printing genotype\n");
                 print_genotypes(gts, qual1, qual2, var_idx, n_var, n);
                 putchar('\n');
+                fprintf(stderr, "Destroying genotype array\n");
                 gts_destroy(gts);
             }
         }
