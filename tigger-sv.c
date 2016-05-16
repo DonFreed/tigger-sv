@@ -8,6 +8,7 @@
 #include "sv_qual.h"
 #include "mempool.h"
 #include "genotype.h"
+#include "parse_bam_hdr.h"
 
 void *bed_read(const char *fn);
 void bed_destroy(void *_h);
@@ -88,6 +89,7 @@ int main(int argc, char *argv[])
     khash_t(sv_hash) *sv_h = kh_init(sv_hash);
     khash_t(sv_geno) *geno_h = kh_init(sv_geno);
     mempool_t *mp;
+    char **samples;
     
     o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10; o.bed = 0;
     while ((c = getopt(argc, argv, "hq:s:l:d:b:")) >= 0) {
@@ -111,6 +113,7 @@ int main(int argc, char *argv[])
     // Open files and initalize aux data //
     n = argc - optind;
     data = calloc(n, sizeof(aux_t*));
+    samples = (char**)malloc(n * sizeof(char*));
     for (i = 0; i < n; ++i) {
         data[i] = calloc(1, sizeof (aux_t));
         data[i]->fp = sam_open(argv[optind + i], "r");
@@ -125,6 +128,11 @@ int main(int argc, char *argv[])
         if (!data[i]->hdr) {
             fprintf(stderr, "Could not read the header for input file \"%s\".\n", argv[optind + 1]);
             return 1;
+        }
+        samples[i] = find_sample(data[i]->hdr, &res);
+        if (!samples[i]) {
+            fprintf(stderr, "Warning. No sample name detected for bam %s. Using filename\n", argv[optind + i]);
+            samples[i] = argv[optind + i];
         }
     }
     h = data[0]->hdr;
@@ -169,8 +177,10 @@ int main(int argc, char *argv[])
         bam_hdr_destroy(data[i]->hdr);
         sam_close(data[i]->fp);
         free(data[i]);
+        free(samples[i]);
     }
     free(data);
+    free(samples);
     kh_destroy(sv_hash, sv_h);
     kh_destroy(sv_geno, geno_h);
     return 0;
