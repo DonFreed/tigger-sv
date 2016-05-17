@@ -9,6 +9,7 @@
 #include "mempool.h"
 #include "genotype.h"
 #include "parse_bam_hdr.h"
+#include "ped.h"
 
 void *bed_read(const char *fn);
 void bed_destroy(void *_h);
@@ -53,7 +54,7 @@ int read_bam(void *data, bam1_t *b)
 
 typedef struct {
     int min_q, min_s, min_len, min_dp;
-    void *bed;
+    void *bed, *fnped;
 } cmdopt_t;
 
 void usage(FILE *fp, cmdopt_t *o)
@@ -71,7 +72,8 @@ void usage(FILE *fp, cmdopt_t *o)
     fprintf(fp, "  -s INT       minimum alignment score [%d]\n", o->min_s);
     fprintf(fp, "  -l INT       minimum unitig length [%d]\n", o->min_len);
     fprintf(fp, "  -d INT       minimum breakpoint depth [%d]\n", o->min_dp);
-    fprintf(fp, "  -b FILE      call variants overlapping intervals in the BED file\n\n");
+    fprintf(fp, "  -b FILE      call variants overlapping intervals in the BED file\n");
+    fprintf(fp, "  -p FILE      a ped file to use when in HWE and genotype consistency calculations\n\n");
 }
 
 int main(int argc, char *argv[])
@@ -88,16 +90,19 @@ int main(int argc, char *argv[])
     khiter_t k_iter;
     khash_t(sv_hash) *sv_h = kh_init(sv_hash);
     khash_t(sv_geno) *geno_h = kh_init(sv_geno);
+    khash_t(colmap) *smp_cols;
+    khash_t(ped) *ped_h;
     mempool_t *mp;
     char **samples;
     
-    o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10; o.bed = 0;
-    while ((c = getopt(argc, argv, "hq:s:l:d:b:")) >= 0) {
+    o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10; o.bed = 0, o.fnped = 0;
+    while ((c = getopt(argc, argv, "hq:s:l:d:b:p:")) >= 0) {
         if (c == 'h') { usage(stderr, &o); return 0; }
         else if (c == 'q') o.min_q = atoi(optarg);
         else if (c == 's') o.min_s = atoi(optarg);
         else if (c == 'l') o.min_len = atoi(optarg);
         else if (c == 'd') o.min_dp = atoi(optarg);
+        else if (c == 'p') o.fnped = optarg;
         else if (c == 'b') { 
             if ((o.bed = bed_read(optarg)) == NULL) {
                 return -1;
@@ -136,6 +141,10 @@ int main(int argc, char *argv[])
         }
     }
     h = data[0]->hdr;
+    smp_cols = map_samples(samples, n);
+    if (o.fnped) {
+        if ((ped_h = read_ped(o.fnped, smp_cols)) == 0) { return -1; }
+    }
 
     // The core data processing loop //
     mplp = bam_mplp_init(n, read_bam, (void**)data);
