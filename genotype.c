@@ -172,7 +172,7 @@ inline void print_genotypes(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qua
     return;
 }
 
-int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp, khash_t(ped) *ped_h)
+int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp, khash_t(ped) *ped_h, double mi_prob)
 {
     int i, j, l;
     khiter_t k1, k2;
@@ -337,7 +337,7 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp, khash
                     }
                     printf(";HWE=%f", log10(1 - hwe) * -10);
                     if (ped_h) {
-                        printf(";GT_SEG=%f", log_segregation(gts, n, 0.0, ped_h));
+                        printf(";GT_SEG=%f", log_segregation(gts, n, mi_prob, ped_h));
                     }
                 }
                 // Genotype //

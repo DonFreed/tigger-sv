@@ -54,6 +54,7 @@ int read_bam(void *data, bam1_t *b)
 
 typedef struct {
     int min_q, min_s, min_len, min_dp;
+    double mi_prob;
     void *bed, *fnped;
 } cmdopt_t;
 
@@ -72,8 +73,9 @@ void usage(FILE *fp, cmdopt_t *o)
     fprintf(fp, "  -s INT       minimum alignment score [%d]\n", o->min_s);
     fprintf(fp, "  -l INT       minimum unitig length [%d]\n", o->min_len);
     fprintf(fp, "  -d INT       minimum breakpoint depth [%d]\n", o->min_dp);
-    fprintf(fp, "  -b FILE      call variants overlapping intervals in the BED file\n");
-    fprintf(fp, "  -p FILE      a ped file to use when in HWE and genotype consistency calculations\n\n");
+    fprintf(fp, "  -b FILE      call variants overlapping intervals in the BED file [null]\n");
+    fprintf(fp, "  -p FILE      a ped file to use when in HWE and genotype consistency calculations [null]\n");
+    fprintf(fp, "  -m FLOAT     the probability of a mendelian inconsistency [%f]\n\n", o->mi_prob);
 }
 
 int main(int argc, char *argv[])
@@ -95,19 +97,23 @@ int main(int argc, char *argv[])
     mempool_t *mp;
     char **samples;
     
-    o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10; o.bed = 0, o.fnped = 0;
-    while ((c = getopt(argc, argv, "hq:s:l:d:b:p:")) >= 0) {
+    o.min_q = 40; o.min_s = 80; o.min_len = 150; o.min_dp = 10; o.bed = 0, o.fnped = 0, o.mi_prob=0.005;
+    while ((c = getopt(argc, argv, "hq:s:l:d:b:p:m:")) >= 0) {
         if (c == 'h') { usage(stderr, &o); return 0; }
         else if (c == 'q') o.min_q = atoi(optarg);
         else if (c == 's') o.min_s = atoi(optarg);
         else if (c == 'l') o.min_len = atoi(optarg);
         else if (c == 'd') o.min_dp = atoi(optarg);
         else if (c == 'p') o.fnped = optarg;
+        else if (c == 'm') o.mi_prob = atof(optarg);
         else if (c == 'b') { 
             if ((o.bed = bed_read(optarg)) == NULL) {
                 return -1;
             }
         }
+    }
+    if (o.mi_prob < 0.0000000000001 || o.mi_prob > 0.1) {
+        fprintf(stderr, "Error. Probability of a mendelian inconsistency must be between 0.1 and 0.0000000000001.\n");
     }
     
     if (argc - optind < 1) {
@@ -175,7 +181,7 @@ int main(int argc, char *argv[])
     }
 
     print_header(h, optind, n, argv);
-    genotype_sv(h, n, geno_h, o.min_dp, ped_h);
+    genotype_sv(h, n, geno_h, o.min_dp, ped_h, o.mi_prob);
 
     free(n_plp);
     free(plp);

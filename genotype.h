@@ -13,6 +13,6 @@ typedef struct {
 
 void print_header(bam_hdr_t *h, int optind, int n, char *argv[]);
 
-int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp, khash_t(ped) *ped_h);
+int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp, khash_t(ped) *ped_h, double mi_prob);
 
 #endif
