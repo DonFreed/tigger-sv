@@ -44,6 +44,9 @@ void print_header(bam_hdr_t *h, int optind, int n, char *argv[])
     printf("##INFO=<ID=AS_SC,Number=R,Type=Float,Description=\"RMS alignment score of alignments supporting the alternate allele(s)\"\n");
     //printf("##INFO=<ID=TIPQ,Number=1,Type=Integer,Description=\"RMS quality/depth of the supporting alignments\">\n");
     printf("##INFO=<ID=BPD,Number=.,Type=Integer,Description=\"Depths at breakpoint(s). All reference alleles are listed first followed by alternate allele pairs\">\n");
+    printf("##INFO=<ID=HWE,Number=1,Type=Float,Description=\"Phred-scaled probability that samples are in Hardy-Weinberg Equilibrium\"\n");
+    printf("##INFO=<ID=GT_SEG,Number=1,Type=Float,Description=\"Phred-scaled probability that genotypes segregation according to mendelian expectation\">\n");
+    printf("##INFO=<ID=MENDEL_IC,Number=1,Type=Integer,Description=\"Number of observed Mendelian inconsistencies\">\n");
     printf("##FORMAT=<ID=BPD,Number=.,Type=Integer,Description=\"Depths at breakpoint(s). All reference alleles are listed first followed by alternate allele pairs\">\n");
     printf("##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype quality\">\n");
     printf("##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred-scaled genotype likelihoods rounded to the nearest integer\">\n");
@@ -139,20 +142,15 @@ inline void genotype_samples(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qu
 
 inline void print_genotypes(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qual2, int *var_idx, int n_var, int n) {
     int n_pl = (n_var + 1) * (n_var + 2) / 2;
-    int i, j, k, l;
+    int i, k, l;
     uint16_t *dp1, *dp2;
+    int alleles[2];
     printf("\tGT:BPD:GQ:PL");
     for (l = 0; l < n; ++l) {
         putchar('\t');
         dp1 = qual1->read_data + qual1->n_alleles * l;
-        for (i = 0;; ++i) {
-            if ( (i + 1) * (i + 2) / 2 > gts[l].gt) {
-                fprintf(stderr, "with i=%d, %d is greater than %d\n", i, (i + 1) * (i + 2) / 2, gts[l].gt);
-                break;
-            }
-        }
-        j = i - (( (i + 1) * (i + 2) / 2 ) - gts[l].gt - 1);
-        printf("%d/%d:", j, i);
+        gt_to_alleles(gts[l].gt, alleles);
+        printf("%d/%d:", alleles[0], alleles[1]);
 
         printf("%d", dp1[0]);
         for (k = 0; k < n_var; ++k) {
@@ -335,9 +333,10 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp, khash
                     } else {
                         hwe = 0.0000001;
                     }
-                    printf(";HWE=%f", log10(1 - hwe) * -10);
+                    printf(";HWE=%.2f", log10(1 - hwe) * -10);
                     if (ped_h) {
-                        printf(";GT_SEG=%f", log_segregation(gts, n, mi_prob, ped_h));
+                        printf(";GT_SEG=%.2f", log_segregation(gts, n, mi_prob, ped_h));
+                        printf(";MENDEL_IC=%d", n_mi(gts, n, ped_h));
                     }
                 }
                 // Genotype //

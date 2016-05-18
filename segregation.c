@@ -2,6 +2,19 @@
 #include <math.h>
 #include "segregation.h"
 
+void gt_to_alleles(int gt, int *alleles)
+{
+    int i;
+    for (i = 0;; ++i) {
+        if ( (i + 1) * (i + 2) / 2 > gt) {
+            break;
+        }
+    }
+    alleles[0] = i - (( (i + 1) * (i + 2) / 2 ) - gt - 1);
+    alleles[1] = i;
+    return;
+}
+
 inline void mendel_probs(int fa, int mo, double *probs, double mi_prob)
 {
     int i, j;
@@ -88,3 +101,30 @@ double log_segregation(genotype_t *gts, int n, double mi_prob, khash_t(ped) *ped
     }
     return ((ol - ml) / log(10)) * -10;
 }
+
+int n_mi(genotype_t *gts, int n, khash_t(ped) *ped_h)
+{
+    int i, j, fa_a[2], mo_a[2], child_a[2], ret = 0;
+    khiter_t k;
+    for (i = 0; i < n; ++i) {
+        k = kh_get(ped, ped_h, i);
+        if (k != kh_end(ped_h)) { // Father and mother are present
+            gt_to_alleles(gts[kh_value(ped_h, k).fa_col].gt, fa_a);
+            gt_to_alleles(gts[kh_value(ped_h, k).mo_col].gt, mo_a);
+            gt_to_alleles(gts[i].gt, child_a);
+            for (j = 0; j < 2; ++j) {
+                int mc = 0; // mendelian consistency
+                for (k = 0; k < 2; ++k) {
+                    if (child_a[j] == fa_a[k] || child_a[j] == mo_a[k]) {
+                        mc = 1;
+                    }
+                }
+                if (!mc) {
+                    ret += 1;
+                }
+            }
+        }
+    }
+    return ret;
+}
+
