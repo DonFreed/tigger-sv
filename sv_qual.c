@@ -31,7 +31,8 @@ int get_qual_data(bam_hdr_t *h, int tid, int pos, int n, int *n_plp,const bam_pi
     // read data //
     for (i = 0; i < n; ++i) {
         for (j = 0; j < n_plp[i]; ++j) {
-            int rd_idx, dp, allele, is_fwd, as = 0;
+            int rd_idx, allele, is_fwd, as = 0;
+            uint32_t dp;
             //fprintf(stderr, "Reading read %d from individual %d\n", j, i);
             b = plp[i][j].b;
             qual_sum.mq_sum += b->core.qual * b->core.qual;

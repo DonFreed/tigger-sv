@@ -5,6 +5,7 @@
 #include "tigger_version.h"
 #include "genotype.h"
 #include "asa147.h"
+#include "segregation.h"
 
 genotype_t *gts_init(int n, int n_var)
 {
@@ -171,7 +172,7 @@ inline void print_genotypes(genotype_t *gts, qual_sum_t *qual1, qual_sum_t **qua
     return;
 }
 
-int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
+int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp, khash_t(ped) *ped_h)
 {
     int i, j, l;
     khiter_t k1, k2;
@@ -299,7 +300,7 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                     printf(",%d,%d", dp, dp2);
                 }
                 fprintf(stderr, "More info printed\n");
-                if (n_var < 2) { // Only analyze HWE at diploid sites
+                if (n_var < 2) { // Only analyze HWE and consistency at diploid sites
                     int n_rhom = 0, n_het = 0, n_ahom = 0, res, n_gt;
                     double maf, chi2 = 0, expected, hwe;
                     for (i = 0; i < n; ++i) {
@@ -335,6 +336,9 @@ int genotype_sv(bam_hdr_t *h, int n, khash_t(sv_geno) *geno_h, int min_dp)
                         hwe = 0.0000001;
                     }
                     printf(";HWE=%f", log10(1 - hwe) * -10);
+                    if (ped_h) {
+                        printf(";GT_SEG=%f", log_segregation(gts, n, 0.0, ped_h));
+                    }
                 }
                 // Genotype //
                 fprintf(stderr, "Printing genotype\n");

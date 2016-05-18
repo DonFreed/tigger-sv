@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
     khash_t(sv_hash) *sv_h = kh_init(sv_hash);
     khash_t(sv_geno) *geno_h = kh_init(sv_geno);
     khash_t(colmap) *smp_cols;
-    khash_t(ped) *ped_h;
+    khash_t(ped) *ped_h = 0;
     mempool_t *mp;
     char **samples;
     
@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
     }
 
     print_header(h, optind, n, argv);
-    genotype_sv(h, n, geno_h, o.min_dp);
+    genotype_sv(h, n, geno_h, o.min_dp, ped_h);
 
     free(n_plp);
     free(plp);
@@ -192,5 +192,7 @@ int main(int argc, char *argv[])
     free(samples);
     kh_destroy(sv_hash, sv_h);
     kh_destroy(sv_geno, geno_h);
+    kh_destroy(colmap, smp_cols);
+    kh_destroy(ped, ped_h);
     return 0;
 }

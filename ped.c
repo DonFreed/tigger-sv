@@ -27,7 +27,6 @@ khash_t(ped) *read_ped(const char *fnped, khash_t(colmap) *smp_cols)
     FILE *fp = fopen(fnped, "r");
     while ((res = kgetline(&line, (kgets_func *)fgets, fp)) != EOF) {
         ++ln;
-        fprintf(stderr, "Line is %s\n", line.s);
         n = ksplit_core(line.s, '\t', &max, &offsets);
         if (n != 6) {
             fprintf(stderr, "Error: ped file is poorly formatted at line %d. Incorrect number of columns\n", ln);
@@ -62,6 +61,7 @@ khash_t(ped) *read_ped(const char *fnped, khash_t(colmap) *smp_cols)
         }
         line.l = 0;
     }
+    fclose(fp);
     free(line.s);
     free(offsets);
     return h;
